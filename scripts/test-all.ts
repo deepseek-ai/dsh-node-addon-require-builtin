@@ -73,6 +73,9 @@ function main(): void {
   console.log(`\n## Build once with Node ${buildRuntime.version}`);
   run(buildRuntime.node, ['--import', 'tsx', './scripts/build.ts']);
 
+  console.log('\n## Getter decoder self-test');
+  run(buildRuntime.node, ['--import', 'tsx', './scripts/test-getter-decoder.ts']);
+
   for (const major of majors) {
     const runtime = versions.get(major);
     if (!runtime) throw new Error(`missing Node ${major} runtime`);
