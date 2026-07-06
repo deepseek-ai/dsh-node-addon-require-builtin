@@ -27,7 +27,7 @@
   ],
   "scripts": {
     "build:js": "tsc -b",
-    "install": "node ./scripts/install.js"
+    "install": "npm run build:js && node ./scripts/install.js"
   },
   "engines": {
     "node": ">=20"
