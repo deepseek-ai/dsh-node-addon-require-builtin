@@ -1,0 +1,53 @@
+#ifndef INTERNAL_REQUIRE_RUNTIME_CONTEXT_HELPER_H_
+#define INTERNAL_REQUIRE_RUNTIME_CONTEXT_HELPER_H_
+
+#include "../runtime_compat.h"
+
+namespace internal_require {
+
+using GetCurrentContextFn = void* (*)(void*);
+using GetNumberOfEmbedderDataFieldsFn = uint32_t (*)(void*);
+
+struct CurrentContextSymbols {
+  void* get_current_context = nullptr;
+  GetCurrentContextFn call_get_current_context = nullptr;
+  GetNumberOfEmbedderDataFieldsFn get_fields = nullptr;
+};
+
+struct CurrentContextRead {
+  void* context_ptr = nullptr;
+  uint32_t embedder_fields = 0;
+};
+
+void TraceRuntimeContextCodeBytes(const char* label, void* fn);
+
+Result<CurrentContextRead> ReadCurrentV8Context(
+    void* isolate,
+    const CurrentContextSymbols& symbols);
+Result<CurrentContextRead> ReadDirectCurrentV8Context(
+    const char* platform,
+    void* isolate,
+    const CurrentContextSymbols& symbols);
+
+Result<CurrentContextRead> ReadDarwinArm64CurrentV8Context(
+    void* isolate,
+    const CurrentContextSymbols& symbols);
+Result<CurrentContextRead> ReadDarwinX64CurrentV8Context(
+    void* isolate,
+    const CurrentContextSymbols& symbols);
+Result<CurrentContextRead> ReadLinuxGlibcArm64CurrentV8Context(
+    void* isolate,
+    const CurrentContextSymbols& symbols);
+Result<CurrentContextRead> ReadLinuxGlibcX64CurrentV8Context(
+    void* isolate,
+    const CurrentContextSymbols& symbols);
+Result<CurrentContextRead> ReadWin32Arm64CurrentV8Context(
+    void* isolate,
+    const CurrentContextSymbols& symbols);
+Result<CurrentContextRead> ReadWin32X64CurrentV8Context(
+    void* isolate,
+    const CurrentContextSymbols& symbols);
+
+}  // namespace internal_require
+
+#endif  // INTERNAL_REQUIRE_RUNTIME_CONTEXT_HELPER_H_

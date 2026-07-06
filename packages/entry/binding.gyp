@@ -1,11 +1,27 @@
 {
+  "variables": {
+    "enable_lto": "false",
+    "enable_thin_lto": "false",
+    "lto_jobs": ""
+  },
   "targets": [
     {
       "target_name": "internal_require",
       "sources": [
         "src/node_api_addon.cc",
         "src/native_types.cc",
+        "src/runtime_context/helper.cc",
+        "src/runtime_context/platform.cc",
+        "src/runtime_context/darwin_arm64.cc",
+        "src/runtime_context/darwin_x64.cc",
+        "src/runtime_context/linux_glibc_arm64.cc",
+        "src/runtime_context/linux_glibc_x64.cc",
+        "src/runtime_context/win32_arm64.cc",
+        "src/runtime_context/win32_x64.cc",
         "src/runtime_probe/helper.cc",
+        "src/runtime_probe/platform.cc",
+        "src/runtime_probe/posix.cc",
+        "src/runtime_probe/win32_common.cc",
         "src/runtime_probe/darwin_arm64.cc",
         "src/runtime_probe/darwin_x64.cc",
         "src/runtime_probe/linux_glibc_arm64.cc",

@@ -3,6 +3,10 @@
 const assert = require('node:assert/strict');
 const addon = require('../packages/entry');
 
+function sortedKeys(value) {
+  return Object.keys(value).sort();
+}
+
 const info = addon.getBindingInfo();
 assert.equal(addon.getBindingInfo(), info);
 
@@ -22,6 +26,7 @@ const expectedOptionalBinary = expectedBackend === 'nodeabi'
 const expectedLocalBuildPath = expectedBackend === 'nodeabi'
   ? new RegExp(`build/nodeabi/node-v[0-9]+-${platformSuffix}/internal_require\\.node$`)
   : new RegExp(`build/napi/napi-v9-${platformSuffix}/internal_require\\.node$`);
+const normalizePath = (value) => value.replaceAll('\\', '/');
 
 assert.equal(
   info.optionalPackageName,
@@ -29,8 +34,8 @@ assert.equal(
 );
 assert.equal(typeof platformSuffix, 'string');
 assert.match(info.bindingPath, /\.node$/);
-assert.match(info.localBindingPath, expectedLocalBuildPath);
-assert.equal(info.optionalBinaryRelativePath, expectedOptionalBinary);
+assert.match(normalizePath(info.localBindingPath), expectedLocalBuildPath);
+assert.equal(normalizePath(info.optionalBinaryRelativePath), expectedOptionalBinary);
 
 if (process.env.DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD === '1') {
   assert.match(info.bindingSource, /^optional-package/);
@@ -68,9 +73,11 @@ assert.deepEqual(nativeBinding.getNativeBindingInfo(), {
 
 const esmLoader = addon.getModulesEsmLoader();
 assert.equal(typeof esmLoader, 'object');
+console.log(`esm_loader_keys=${sortedKeys(esmLoader).join(',')}`);
 
 const cjsLoader = addon.getModulesCjsLoader();
 assert.equal(typeof cjsLoader, 'object');
+console.log(`cjs_loader_keys=${sortedKeys(cjsLoader).join(',')}`);
 
 console.log(
   JSON.stringify(

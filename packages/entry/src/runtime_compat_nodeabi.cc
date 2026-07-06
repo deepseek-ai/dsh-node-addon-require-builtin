@@ -98,7 +98,7 @@ Result<RuntimeRequireBuiltin> ProbeRuntimeRequireBuiltin(napi_env env) {
   auto context = ReadCurrentContext();
   if (!context.ok()) return Result<RuntimeRequireBuiltin>::Failure(context.status());
 
-  auto getter = ResolveBuiltinModuleRequireGetter();
+  auto getter = ResolveBuiltinModuleRequireGetter(env, context.value().realm_ptr);
   if (!getter.ok()) return Result<RuntimeRequireBuiltin>::Failure(getter.status());
 
   auto image = ValidateRuntimeImagePointers(
@@ -110,7 +110,7 @@ Result<RuntimeRequireBuiltin> ProbeRuntimeRequireBuiltin(napi_env env) {
 
   auto require_builtin = ReadAndValidateRequireBuiltinHandle(
       env,
-      context.value().realm_ptr, getter.value().address_ptr, pattern.value().offset);
+      context.value().realm_ptr, getter.value().address_ptr, pattern.value());
   if (!require_builtin.ok()) {
     return Result<RuntimeRequireBuiltin>::Failure(require_builtin.status());
   }

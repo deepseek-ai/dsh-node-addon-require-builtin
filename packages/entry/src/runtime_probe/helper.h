@@ -16,13 +16,13 @@ Fn LookupProcessFunction(std::string_view name) {
   return reinterpret_cast<Fn>(LookupProcessSymbol(name));
 }
 
-Result<GetterSymbol> ResolveBuiltinModuleRequireGetter();
+Result<GetterSymbol> ResolveBuiltinModuleRequireGetter(napi_env env, void* realm);
 Result<ImageValidation> ValidateRuntimeImagePointers(void* realm, void* getter);
 Result<GetterPattern> ParseBuiltinModuleRequireGetterOffset(void* getter);
 Result<napi_value> ReadAndValidateRequireBuiltinHandle(napi_env env,
                                                        void* realm,
                                                        void* getter,
-                                                       size_t offset);
+                                                       const GetterPattern& pattern);
 
 }  // namespace internal_require
 

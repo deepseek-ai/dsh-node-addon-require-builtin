@@ -38,11 +38,38 @@ function localBuildRelativePath() {
 
 function validationScript() {
   return `
-    const addon = require(${JSON.stringify(root)});
-    const cjsLoader = addon.getModulesCjsLoader();
-    const esmLoader = addon.getModulesEsmLoader();
-    if (cjsLoader == null || esmLoader == null) {
-      console.error('internal loader exports were not returned');
+    const trace = process.env.DSH_NODE_ADDON_INTERNAL_TRACE
+      ? (line) => require('node:fs').writeSync(2, '[dsh-probe] ' + line + '\\n')
+      : () => {};
+    try {
+      trace('validation: requiring addon entry');
+      const addon = require(${JSON.stringify(root)});
+      const validateLoader = (name, getter) => {
+        trace('validation: probing ' + name);
+        const exports = getter();
+        if (exports == null || typeof exports !== 'object') {
+          console.error(name + ' exports were not returned');
+          process.exit(1);
+        }
+        trace('validation: ' + name + ' keys=' + Object.keys(exports).sort().join(','));
+        trace('validation: ' + name + ' ok');
+      };
+      trace('validation: addon entry loaded');
+      validateLoader('esm loader', () => addon.getModulesEsmLoader());
+      validateLoader('cjs loader', () => addon.getModulesCjsLoader());
+      if (typeof addon.getBindingInfo !== 'function') {
+        console.error('getBindingInfo export was not returned');
+        process.exit(1);
+      }
+      trace('validation: ok');
+    } catch (error) {
+      console.error(error && error.stack ? error.stack : error);
+      if (error && error.code) {
+        console.error('code:', error.code);
+      }
+      if (error && error.diagnostics) {
+        console.error('diagnostics:', JSON.stringify(error.diagnostics, null, 2));
+      }
       process.exit(1);
     }
   `;
@@ -59,6 +86,16 @@ function runValidation(extraEnv) {
   });
 }
 
+function traceEnabled() {
+  const value = process.env.DSH_NODE_ADDON_INTERNAL_TRACE;
+  return value != null && value !== '' && value !== '0';
+}
+
+function writeValidationOutput(result) {
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+}
+
 function optionalPrebuildWorks() {
   const result = runValidation({
     DSH_NODE_ADDON_INTERNAL_BACKEND: 'auto',
@@ -67,20 +104,140 @@ function optionalPrebuildWorks() {
   return result.status === 0;
 }
 
-function nodeGypCommand() {
-  if (process.env.npm_config_node_gyp) {
-    return process.env.npm_config_node_gyp;
+function isNodeExecutableScript(command) {
+  const ext = path.extname(command).toLowerCase();
+  return ext === '.js' || ext === '.cjs' || ext === '.mjs';
+}
+
+function uniqueExistingPaths(candidates, exists) {
+  const seen = new Set();
+  const found = [];
+  for (const candidate of candidates) {
+    const resolved = path.resolve(candidate);
+    if (seen.has(resolved)) continue;
+    seen.add(resolved);
+    if (exists(resolved)) found.push(resolved);
   }
-  return process.platform === 'win32' ? 'node-gyp.cmd' : 'node-gyp';
+  return found;
+}
+
+function bundledNodeGypScript(execPath, npmExecPath, exists = fs.existsSync) {
+  const candidates = [
+    path.join(root, 'node_modules', 'node-gyp', 'bin', 'node-gyp.js'),
+    path.join(root, '..', '..', 'node_modules', 'node-gyp', 'bin', 'node-gyp.js'),
+    path.join(root, '..', 'node_modules', 'node-gyp', 'bin', 'node-gyp.js'),
+  ];
+  if (npmExecPath) {
+    const npmExecDir = path.dirname(npmExecPath);
+    candidates.push(
+      path.join(npmExecDir, 'node_modules', 'node-gyp', 'bin', 'node-gyp.js'),
+      path.join(npmExecDir, '..', 'node_modules', 'node-gyp', 'bin', 'node-gyp.js'),
+      path.join(npmExecDir, '..', 'dist', 'node_modules', 'node-gyp', 'bin', 'node-gyp.js'),
+      path.join(npmExecDir, '..', '..', 'node_modules', 'node-gyp', 'bin', 'node-gyp.js'),
+      path.join(npmExecDir, '..', 'pnpm', 'dist', 'node_modules', 'node-gyp', 'bin', 'node-gyp.js'),
+    );
+  }
+
+  candidates.push(
+    path.join(
+      path.dirname(execPath),
+      'node_modules',
+      'npm',
+      'node_modules',
+      'node-gyp',
+      'bin',
+      'node-gyp.js',
+    ),
+  );
+
+  return uniqueExistingPaths(candidates, exists)[0];
+}
+
+function nodeGypInvocationFor(
+  platform,
+  configuredNodeGyp,
+  execPath,
+  npmExecPath,
+  exists = fs.existsSync,
+) {
+  if (platform === 'win32') {
+    if (configuredNodeGyp && isNodeExecutableScript(configuredNodeGyp)) {
+      return {
+        command: execPath,
+        args: [configuredNodeGyp, 'rebuild'],
+        shell: false,
+      };
+    }
+    if (!configuredNodeGyp) {
+      const bundledNodeGyp = bundledNodeGypScript(execPath, npmExecPath, exists);
+      if (bundledNodeGyp) {
+        return {
+          command: execPath,
+          args: [bundledNodeGyp, 'rebuild'],
+          shell: false,
+        };
+      }
+    }
+    return {
+      command: configuredNodeGyp || 'node-gyp.cmd',
+      args: ['rebuild'],
+      shell: true,
+    };
+  }
+
+  return {
+    command: configuredNodeGyp || 'node-gyp',
+    args: ['rebuild'],
+    shell: false,
+  };
+}
+
+function nodeGypInvocation() {
+  return nodeGypInvocationFor(
+    process.platform,
+    process.env.npm_config_node_gyp,
+    process.execPath,
+    process.env.npm_execpath,
+  );
+}
+
+function nodeGypDefines(existingDefines) {
+  return [
+    existingDefines,
+    'enable_lto=false',
+    'enable_thin_lto=false',
+    'lto_jobs=',
+  ].filter(Boolean).join(' ');
+}
+
+function nodeGypArgsFor(platform, invocationArgs) {
+  const args = [...invocationArgs];
+  if (platform !== 'win32') return args;
+
+  const ltoArgs = [
+    '--enable-lto=false',
+    '--enable-thin-lto=false',
+    '--lto-jobs=',
+  ];
+  const rebuildIndex = args.lastIndexOf('rebuild');
+  if (rebuildIndex === -1) return [...args, ...ltoArgs];
+  args.splice(rebuildIndex + 1, 0, ...ltoArgs);
+  return args;
 }
 
 function runNodeGyp() {
-  const result = spawnSync(nodeGypCommand(), ['rebuild'], {
+  const invocation = nodeGypInvocation();
+  const result = spawnSync(invocation.command, nodeGypArgsFor(process.platform, invocation.args), {
     cwd: root,
     stdio: 'inherit',
+    shell: invocation.shell,
     env: {
       ...process.env,
       DSH_NODE_ADDON_INTERNAL_BACKEND: 'napi',
+      GYP_DEFINES: nodeGypDefines(process.env.GYP_DEFINES),
+      npm_config_enable_lto: 'false',
+      npm_config_enable_thin_lto: 'false',
+      npm_config_lto_jobs: '',
     },
   });
   if (result.error) throw result.error;
@@ -107,10 +264,19 @@ function validateLocalBuild() {
     DSH_NODE_ADDON_INTERNAL_BACKEND: 'napi',
     DSH_NODE_ADDON_INTERNAL_DISABLE_OPTIONAL_PACKAGE: '1',
   });
-  if (result.status === 0) return;
+  const shouldEcho = traceEnabled();
+  if (shouldEcho) writeValidationOutput(result);
+  if (result.status === 0) {
+    if (shouldEcho) {
+      console.error('[dsh-probe] local build validation: ok');
+    }
+    return;
+  }
 
-  if (result.stdout) process.stdout.write(result.stdout);
-  if (result.stderr) process.stderr.write(result.stderr);
+  if (!shouldEcho) writeValidationOutput(result);
+  console.error(
+    `local build validation failed (status=${result.status}, signal=${result.signal || ''})`,
+  );
   process.exit(result.status ?? 1);
 }
 
@@ -125,4 +291,14 @@ function main() {
   validateLocalBuild();
 }
 
-main();
+module.exports = {
+  bundledNodeGypScript,
+  nodeGypArgsFor,
+  nodeGypDefines,
+  nodeGypInvocationFor,
+  validationScript,
+};
+
+if (require.main === module) {
+  main();
+}

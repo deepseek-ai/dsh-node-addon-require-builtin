@@ -51,42 +51,58 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Test install script helpers
+        run: node ./test/install-script.test.js
+
       - name: Test local N-API build
         run: pnpm test
 
       - name: Test current-platform optional package
         run: pnpm test:optional
 
-  # windows-preview:
-  #   name: win32-x64-msvc / node ${{ matrix.node }} (non-blocking)
-  #   runs-on: windows-2025
-  #   continue-on-error: true
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       node: [22, 24, 26]
-  #   steps:
-  #     - uses: actions/checkout@v4
+  windows-preview:
+    name: win32-x64-msvc / node ${{ matrix.node }} (non-blocking)
+    runs-on: windows-2025
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24, 26]
+    steps:
+      - uses: actions/checkout@v4
 
-  #     - uses: pnpm/action-setup@v4
-  #       with:
-  #         version: 9.15.9
-  #         run_install: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
 
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: ${{ matrix.node }}
-  #         cache: pnpm
-  #         cache-dependency-path: pnpm-lock.yaml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-  #     - name: Install dependencies without package install scripts
-  #       run: pnpm install --ignore-scripts --frozen-lockfile
+      - name: Use bash for pnpm scripts
+        run: pnpm config set script-shell "C:\Program Files\Git\bin\bash.exe"
 
-  #     - name: Typecheck
-  #       run: pnpm typecheck
+      - name: Install dependencies without package install scripts
+        run: pnpm install --ignore-scripts --frozen-lockfile
 
-  #     - name: Build TypeScript entrypoints
-  #       run: pnpm build:ts
+      - name: Typecheck
+        run: pnpm typecheck
 
-  #     - name: Probe Windows install/runtime path
-  #       run: pnpm --dir packages/entry exec node ./scripts/install.js
+      - name: Build TypeScript entrypoints
+        run: pnpm build:ts
+
+      - name: Probe Windows install/runtime path
+        run: pnpm --dir packages/entry exec node ./scripts/install.js
+        env:
+          DSH_NODE_ADDON_INTERNAL_TRACE: 1
+
+      - name: Test local N-API build
+        run: node ./test/backend.test.js
+        env:
+          DSH_NODE_ADDON_INTERNAL_BACKEND: napi
+          DSH_NODE_ADDON_INTERNAL_EXPECTED_BACKEND: napi
+          DSH_NODE_ADDON_INTERNAL_DISABLE_OPTIONAL_PACKAGE: 1
+          DSH_NODE_ADDON_INTERNAL_TRACE: 1

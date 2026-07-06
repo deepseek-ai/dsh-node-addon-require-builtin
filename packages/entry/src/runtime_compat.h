@@ -24,9 +24,15 @@ struct GetterSymbol {
   std::string symbol_name;
 };
 
+enum class GetterCallMode {
+  kDirectReturn,
+  kSret,
+};
+
 struct GetterPattern {
   size_t offset = 0;
   std::string pattern = "none";
+  GetterCallMode call_mode = GetterCallMode::kDirectReturn;
 };
 
 struct ImageValidation {

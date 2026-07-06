@@ -32,8 +32,8 @@ Not published yet:
 |---|---|
 | `linux-arm64-musl` | musl getter parser not implemented |
 | `linux-x64-musl` | musl getter parser not implemented |
-| `win32-arm64-msvc` | Windows symbol/image lookup not implemented |
-| `win32-x64-msvc` | Windows symbol/image lookup not implemented |
+| `win32-arm64-msvc` | Windows runtime path not CI-validated yet |
+| `win32-x64-msvc` | Windows runtime path not CI-validated yet |
 
 Unsupported runtimes should fail closed with diagnostics rather than loading an
 unchecked internal module.

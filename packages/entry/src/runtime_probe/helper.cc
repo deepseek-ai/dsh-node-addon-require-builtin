@@ -1,12 +1,8 @@
 #include "helper.h"
 
-#include "parser.h"
+#include "platform.h"
 
 #include <cstring>
-
-#if !defined(_WIN32)
-#include <dlfcn.h>
-#endif
 
 namespace internal_require {
 namespace {
@@ -19,24 +15,41 @@ constexpr std::string_view kSymBuiltinModuleRequireGetter =
     "_ZNK4node14PrincipalRealm22builtin_module_requireEv";
 
 using BuiltinModuleRequireGetterFn = napi_value (*)(void*);
+using BuiltinModuleRequireGetterSretFn = void (*)(void*, void*);
 
 }  // namespace
 
-void* LookupProcessSymbol(std::string_view name) {
-#if defined(_WIN32)
-  (void)name;
-  return nullptr;
-#else
-  return dlsym(RTLD_DEFAULT, name.data());
-#endif
+Result<void*> ReadRealmVptr(void* realm) {
+  const uintptr_t realm_address = reinterpret_cast<uintptr_t>(realm);
+  TracePrintf("reading Realm vptr from realm=%s", Hex(realm_address).c_str());
+  if (realm_address < kMinPlausiblePointer ||
+      (realm_address % alignof(void*)) != 0) {
+    return Result<void*>::Failure(Status::Failure(
+        ProbeStatus::kUnsupportedNoRealm, "realm pointer is not plausible"));
+  }
+
+  void* vptr = nullptr;
+  std::memcpy(&vptr, realm, sizeof(vptr));
+  if (!IsPointerAligned(reinterpret_cast<uintptr_t>(vptr))) {
+    return Result<void*>::Failure(Status::Failure(
+        ProbeStatus::kUnsupportedNoRealm,
+        "realm vptr is null or unaligned"));
+  }
+  TracePrintf("Realm vptr=%s",
+              Hex(reinterpret_cast<uintptr_t>(vptr)).c_str());
+  return Result<void*>::Ok(vptr);
 }
 
-Result<GetterSymbol> ResolveBuiltinModuleRequireGetter() {
+void* LookupProcessSymbol(std::string_view name) {
+  return LookupPlatformProcessSymbol(name);
+}
+
+Result<GetterSymbol> ResolveBuiltinModuleRequireGetter(napi_env env,
+                                                       void* realm) {
   void* getter = LookupProcessSymbol(kSymBuiltinModuleRequireGetter);
+  TracePrintf("LookupProcessSymbol(builtin_module_require getter) -> %p", getter);
   if (getter == nullptr) {
-    return Result<GetterSymbol>::Failure(Status::Failure(
-        ProbeStatus::kUnsupportedNoGetter,
-        "PrincipalRealm::builtin_module_require getter symbol not found"));
+    return ResolvePlatformBuiltinModuleRequireGetterFallback(env, realm);
   }
 
   GetterSymbol symbol;
@@ -48,96 +61,49 @@ Result<GetterSymbol> ResolveBuiltinModuleRequireGetter() {
 }
 
 Result<ImageValidation> ValidateRuntimeImagePointers(void* realm, void* getter) {
-#if defined(_WIN32)
-  (void)realm;
-  (void)getter;
-  return Result<ImageValidation>::Ok(ImageValidation{});
-#else
   // Private object-layout check: Realm vptr is used only as evidence that the
   // pointer came from the same loaded Node image as the getter symbol.
-  ImageValidation image;
-  const uintptr_t realm_address = reinterpret_cast<uintptr_t>(realm);
-  if (realm_address < kMinPlausiblePointer ||
-      (realm_address % alignof(void*)) != 0) {
-    return Result<ImageValidation>::Failure(Status::Failure(
-        ProbeStatus::kUnsupportedNoRealm, "realm pointer is not plausible"));
+  auto vptr = ReadRealmVptr(realm);
+  if (!vptr.ok()) {
+    return Result<ImageValidation>::Failure(vptr.status());
   }
-
-  void* vptr = nullptr;
-  std::memcpy(&vptr, realm, sizeof(vptr));
-  image.vptr = reinterpret_cast<uintptr_t>(vptr);
-  if (!IsPointerAligned(image.vptr)) {
-    return Result<ImageValidation>::Failure(Status::Failure(
-        ProbeStatus::kUnsupportedNoRealm,
-        "realm vptr is null or unaligned"));
-  }
-
-  Dl_info getter_info;
-  Dl_info vptr_info;
-  if (dladdr(getter, &getter_info) == 0 || getter_info.dli_fname == nullptr) {
-    return Result<ImageValidation>::Failure(Status::Failure(
-        ProbeStatus::kUnsupportedNoGetter,
-        "getter address is not in a loaded image"));
-  }
-  if (dladdr(vptr, &vptr_info) == 0 || vptr_info.dli_fname == nullptr) {
-    return Result<ImageValidation>::Failure(Status::Failure(
-        ProbeStatus::kUnsupportedNoRealm,
-        "realm vptr is not in a loaded image"));
-  }
-
-  image.getter_image = getter_info.dli_fname;
-  image.vptr_image = vptr_info.dli_fname;
-  if (getter_info.dli_fbase == nullptr ||
-      getter_info.dli_fbase != vptr_info.dli_fbase) {
-    return Result<ImageValidation>::Failure(Status::Failure(
-        ProbeStatus::kUnsupportedNoRealm,
-        "realm vptr image does not match getter image"));
-  }
-  return Result<ImageValidation>::Ok(image);
-#endif
-}
-
-Result<GetterPattern> ParseBuiltinModuleRequireGetterOffset(void* getter) {
-#if defined(__APPLE__) && defined(__aarch64__)
-  return ParseDarwinArm64BuiltinModuleRequireGetterOffset(getter);
-#elif defined(__APPLE__) && defined(__x86_64__)
-  return ParseDarwinX64BuiltinModuleRequireGetterOffset(getter);
-#elif defined(__linux__) && defined(__GLIBC__) && defined(__aarch64__)
-  return ParseLinuxGlibcArm64BuiltinModuleRequireGetterOffset(getter);
-#elif defined(__linux__) && defined(__GLIBC__) && defined(__x86_64__)
-  return ParseLinuxGlibcX64BuiltinModuleRequireGetterOffset(getter);
-#elif defined(__linux__)
-  return Result<GetterPattern>::Failure(Status::Failure(
-      ProbeStatus::kUnsupportedNoGetter,
-      "unsupported linux libc getter parser"));
-#elif defined(_WIN32) && defined(_M_ARM64)
-  return ParseWin32Arm64BuiltinModuleRequireGetterOffset(getter);
-#elif defined(_WIN32) && defined(_M_X64)
-  return ParseWin32X64BuiltinModuleRequireGetterOffset(getter);
-#else
-  return Result<GetterPattern>::Failure(Status::Failure(
-      ProbeStatus::kUnsupportedNoGetter,
-      "unsupported platform/architecture getter parser"));
-#endif
+  return ValidatePlatformRuntimeImagePointers(getter, vptr.value());
 }
 
 Result<napi_value> ReadAndValidateRequireBuiltinHandle(napi_env env,
                                                        void* realm,
                                                        void* getter,
-                                                       size_t offset) {
+                                                       const GetterPattern& pattern) {
   napi_value candidate_from_field = nullptr;
   // Private layout read: Realm + parsed offset is expected to contain the same
   // handle word returned by PrincipalRealm::builtin_module_require().
   std::memcpy(&candidate_from_field,
-              static_cast<const uint8_t*>(realm) + offset,
+              static_cast<const uint8_t*>(realm) + pattern.offset,
               sizeof(candidate_from_field));
+  TracePrintf("requireBuiltin field read: realm=%s offset=%s value=%s",
+              Hex(reinterpret_cast<uintptr_t>(realm)).c_str(),
+              Hex(pattern.offset).c_str(),
+              Hex(reinterpret_cast<uintptr_t>(candidate_from_field)).c_str());
 
   // Private ABI call: this executes a Node C++ getter that is not part of the
   // Node-API contract. The field read above must match this result.
-  auto getter_fn = reinterpret_cast<BuiltinModuleRequireGetterFn>(getter);
-  napi_value candidate_from_getter = getter_fn(realm);
+  napi_value candidate_from_getter = nullptr;
+  if (pattern.call_mode == GetterCallMode::kSret) {
+    auto getter_fn = reinterpret_cast<BuiltinModuleRequireGetterSretFn>(getter);
+    getter_fn(realm, &candidate_from_getter);
+  } else {
+    auto getter_fn = reinterpret_cast<BuiltinModuleRequireGetterFn>(getter);
+    candidate_from_getter = getter_fn(realm);
+  }
+  TracePrintf("requireBuiltin getter call: getter=%s mode=%s value=%s",
+              Hex(reinterpret_cast<uintptr_t>(getter)).c_str(),
+              pattern.call_mode == GetterCallMode::kSret ? "sret" : "direct",
+              Hex(reinterpret_cast<uintptr_t>(candidate_from_getter)).c_str());
 
   if (candidate_from_field != candidate_from_getter) {
+    TracePrintf("requireBuiltin handle mismatch: field=%s getter=%s",
+                Hex(reinterpret_cast<uintptr_t>(candidate_from_field)).c_str(),
+                Hex(reinterpret_cast<uintptr_t>(candidate_from_getter)).c_str());
     return Result<napi_value>::Failure(Status::Failure(
         ProbeStatus::kUnsupportedHandleMode,
         "getter result did not match field value at parsed offset"));
@@ -150,6 +116,9 @@ Result<napi_value> ReadAndValidateRequireBuiltinHandle(napi_env env,
   if (candidate_from_getter == nullptr ||
       napi_typeof(env, candidate_from_getter, &type) != napi_ok ||
       type != napi_function) {
+    TracePrintf("requireBuiltin handle type validation failed: value=%s type=%d",
+                Hex(reinterpret_cast<uintptr_t>(candidate_from_getter)).c_str(),
+                static_cast<int>(type));
     return Result<napi_value>::Failure(Status::Failure(
         ProbeStatus::kUnsupportedHandleMode,
         "Realm field at parsed offset is not a function napi_value"));

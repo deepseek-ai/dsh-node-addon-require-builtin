@@ -109,6 +109,8 @@ Constraints:
 the backend and performs the private checks:
 
 - Resolve `node::PrincipalRealm::builtin_module_require() const` dynamically.
+- On Windows, fall back to scanning the live `PrincipalRealm` vtable for the
+  matching getter when the private getter is not exported from the PE image.
 - Verify the getter and `Realm` vtable are from the same loaded image on
   platforms where image metadata is available.
 - Parse a short getter machine-code pattern to get the runtime field offset.

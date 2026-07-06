@@ -22,6 +22,8 @@
     "scripts/install.js",
     "src/*.cc",
     "src/*.h",
+    "src/runtime_context/*.cc",
+    "src/runtime_context/*.h",
     "src/runtime_probe/*.cc",
     "src/runtime_probe/*.h"
   ],
@@ -44,7 +46,8 @@
   "homepage": "https://github.com/deepseek-harness/dsh-node-addon-internal#readme",
   "dependencies": {
     "@deepseek-ai/dsh-node-addon-internal-loader": "workspace:*",
-    "node-addon-api": "^8.9.0"
+    "node-addon-api": "^8.9.0",
+    "node-gyp": "12.4.0"
   },
   "optionalDependencies": {
     "@deepseek-ai/dsh-node-addon-internal-darwin-arm64": "workspace:*",
