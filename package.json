@@ -1,0 +1,30 @@
+{
+  "name": "@deepseek-ai/dsh-node-addon-internal-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "license": "MIT",
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "headers": "tsx ./scripts/prepare-nodeabi-headers.ts",
+    "build": "pnpm build:ts && pnpm build:native:napi",
+    "build:ts": "tsc -b",
+    "build:native": "tsx ./scripts/build.ts",
+    "build:native:napi": "DSH_NODE_ADDON_INTERNAL_BACKEND=napi pnpm build:native",
+    "build:native:nodeabi": "test -n \"$NODE_JS_PUBLIC_INCLUDE_DIRS\" || (echo 'NODE_JS_PUBLIC_INCLUDE_DIRS is required. Run: eval \"$(pnpm -s headers -- --version <node-version>)\"' >&2; exit 1) && DSH_NODE_ADDON_INTERNAL_BACKEND=nodeabi pnpm build:native",
+    "build:prebuild:napi": "pnpm build:ts && DSH_NODE_ADDON_INTERNAL_BACKEND=napi DSH_NODE_ADDON_INTERNAL_BUILD_OUTPUT=prebuild pnpm build:native",
+    "build:prebuild:nodeabi": "pnpm build:ts && (test -n \"$NODE_JS_PUBLIC_INCLUDE_DIRS\" || (echo 'NODE_JS_PUBLIC_INCLUDE_DIRS is required. Run: eval \"$(pnpm -s headers -- --version <node-version>)\"' >&2; exit 1)) && DSH_NODE_ADDON_INTERNAL_BACKEND=nodeabi DSH_NODE_ADDON_INTERNAL_BUILD_OUTPUT=prebuild pnpm build:native",
+    "build:prebuilds": "pnpm build:ts && DSH_NODE_ADDON_INTERNAL_BACKEND=napi DSH_NODE_ADDON_INTERNAL_BUILD_OUTPUT=prebuild pnpm build:native && (test -n \"$NODE_JS_PUBLIC_INCLUDE_DIRS\" || (echo 'NODE_JS_PUBLIC_INCLUDE_DIRS is required. Run: eval \"$(pnpm -s headers -- --version <node-version>)\"' >&2; exit 1)) && DSH_NODE_ADDON_INTERNAL_BACKEND=nodeabi DSH_NODE_ADDON_INTERNAL_BUILD_OUTPUT=prebuild pnpm build:native",
+    "test": "pnpm build && DSH_NODE_ADDON_INTERNAL_BACKEND=napi DSH_NODE_ADDON_INTERNAL_EXPECTED_BACKEND=napi DSH_NODE_ADDON_INTERNAL_DISABLE_OPTIONAL_PACKAGE=1 node ./test/backend.test.js",
+    "test:backends": "pnpm build:ts && tsx ./scripts/test-backends.ts",
+    "test:nodeabi": "pnpm build:ts && pnpm build:native:nodeabi && DSH_NODE_ADDON_INTERNAL_BACKEND=nodeabi DSH_NODE_ADDON_INTERNAL_DISABLE_OPTIONAL_PACKAGE=1 node ./test/backend.test.js",
+    "test:optional": "pnpm build:prebuild:napi && DSH_NODE_ADDON_INTERNAL_BACKEND=napi DSH_NODE_ADDON_INTERNAL_EXPECTED_BACKEND=napi DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD=1 node ./test/backend.test.js",
+    "test:all": "pnpm build:ts && tsx ./scripts/test-all.ts",
+    "typecheck": "tsc --noEmit && tsc -b --dry"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

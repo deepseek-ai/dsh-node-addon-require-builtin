@@ -1,0 +1,37 @@
+{
+  "name": "@deepseek-ai/dsh-node-addon-internal-darwin-arm64",
+  "version": "0.0.1",
+  "description": "Prebuilt darwin-arm64 native addon package for @deepseek-ai/dsh-node-addon-internal.",
+  "main": "./index.js",
+  "publishConfig": {
+    "access": "public"
+  },
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "index.js",
+    "README.md",
+    "prebuilds.json",
+    "prebuilt/"
+  ],
+  "dependencies": {
+    "@deepseek-ai/dsh-node-addon-internal-loader": "workspace:*"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-harness/dsh-node-addon-internal.git",
+    "directory": "packages/darwin-arm64"
+  },
+  "bugs": {
+    "url": "https://github.com/deepseek-harness/dsh-node-addon-internal/issues"
+  },
+  "homepage": "https://github.com/deepseek-harness/dsh-node-addon-internal#readme"
+}

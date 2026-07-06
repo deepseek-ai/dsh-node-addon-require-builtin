@@ -1,0 +1,154 @@
+# Architecture
+
+`@deepseek-ai/dsh-node-addon-internal` is a Node native addon that obtains the bootstrap
+`requireBuiltin()` function from the current Node `Realm` and exposes a small JS
+API around it.
+
+The addon has a stable public loading shell, but its core behavior is private
+runtime probing:
+
+```text
+JS entry / optional package loader
+  -> Node-API addon entry
+  -> requireBuiltin decision flow
+  -> backend-specific runtime context adapter
+       -> napi backend
+       -> nodeabi backend
+  -> shared private runtime probe
+       -> Realm pointer validation
+       -> PrincipalRealm::builtin_module_require symbol lookup
+       -> platform getter machine-code parser
+       -> handle validation through public N-API
+  -> smoke tests and target exports load checks
+```
+
+## JS Loader Layer
+
+The published main package loads one native binary.
+
+Selection order:
+
+1. Resolve the current platform suffix, such as `darwin-arm64` or
+   `linux-x64-gnu`.
+2. Try the matching platform optional package unless
+   `DSH_NODE_ADDON_INTERNAL_DISABLE_OPTIONAL_PACKAGE=1`.
+3. In the optional package, try a matching `nodeabi` binary first when the
+   package manifest includes the current `process.versions.modules`.
+4. Fall back to `napi-v9`.
+5. If no optional package binary works, try the local build output unless
+   `DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD=1`.
+
+`DSH_NODE_ADDON_INTERNAL_BACKEND=napi|nodeabi|auto` controls backend preference.
+`auto` is the default.
+
+## Native API Layer
+
+`packages/entry/src/node_api_addon.cc` exports:
+
+- `getModulesCjsLoader()`
+- `getModulesEsmLoader()`
+- `getNativeBindingInfo()`
+
+The JS entry package re-exports only `getModulesCjsLoader()`,
+`getModulesEsmLoader()`, and a lazy `getBindingInfo()` wrapper around native and
+loader metadata. It does not expose a generic `requireBuiltin()` or `probe()`
+API.
+
+## Probe Decision Flow
+
+`packages/entry/src/internal_require_probe.cc` owns the backend-independent
+control flow:
+
+1. Ask the selected runtime adapter for a candidate `requireBuiltin` value.
+2. Verify the JS function name is `requireBuiltin`.
+3. Smoke test `requireBuiltin('internal/bootstrap/realm')`.
+4. Verify the realm export self-reference points back to the same function.
+5. Reject target ids outside `internal/modules/cjs/loader` and
+   `internal/modules/esm/loader`.
+6. Load the selected target internal module and record whether it returned
+   exports. The getter does not inspect target export properties.
+
+Target-load exceptions are converted into clear unsupported errors with
+diagnostics. The only public target selection is in C++ through the fixed CJS
+and ESM loader getter functions.
+
+## Runtime Backends
+
+Both backends implement:
+
+```cpp
+Result<RuntimeRequireBuiltin> ProbeRuntimeRequireBuiltin(napi_env env);
+```
+
+### `napi`
+
+The `napi` backend builds one N-API v9 binary per supported platform.
+
+Constraints:
+
+- Does not include `node.h` or `v8.h`.
+- Does not bind to Node/V8 C++ headers at compile time.
+- Finds required V8 symbols dynamically.
+- Uses N-API immediately to validate the candidate handle.
+
+### `nodeabi`
+
+The `nodeabi` backend builds one binary per Node module ABI.
+
+Constraints:
+
+- Uses official Node.js public headers from `node-vX.Y.Z-headers.tar.gz`.
+- May include public `node.h`, `v8.h`, and `node_version.h`.
+- Does not use `NODE_WANT_INTERNALS`.
+- Does not include Node source private headers.
+- Does not declare or include `node::Realm` or `node::PrincipalRealm`.
+
+## Shared Private Probe
+
+`packages/entry/src/runtime_probe/helper.cc` receives an opaque `Realm*` from
+the backend and performs the private checks:
+
+- Resolve `node::PrincipalRealm::builtin_module_require() const` dynamically.
+- Verify the getter and `Realm` vtable are from the same loaded image on
+  platforms where image metadata is available.
+- Parse a short getter machine-code pattern to get the runtime field offset.
+- Read the field at `Realm + offset`.
+- Call the getter directly and require it to match the field read.
+- Validate the resulting handle is a function via public N-API.
+
+If any check fails, the result is unsupported.
+
+## Platform Parsers
+
+Implemented parser families:
+
+- macOS arm64
+- macOS x64
+- Linux glibc arm64
+- Linux glibc x64
+
+Linux musl and Windows are intentionally not published until their full runtime
+probing paths are implemented and CI-validated.
+
+## Build Outputs
+
+Local development output:
+
+```text
+packages/entry/build/<backend>/<abi>-<platform>/internal_require.node
+```
+
+Platform prebuild output:
+
+```text
+packages/<platform>/prebuilt/<platform>-<binaryTag>.node
+```
+
+Examples:
+
+```text
+packages/darwin-arm64/prebuilt/darwin-arm64-napi-v9.node
+packages/darwin-arm64/prebuilt/darwin-arm64-nodeabi-v137.node
+```
+
+Generated binaries are ignored by git and produced by local release or CI jobs.

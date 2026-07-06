@@ -1,0 +1,55 @@
+{
+  "name": "@deepseek-ai/dsh-node-addon-internal",
+  "version": "0.0.1",
+  "type": "commonjs",
+  "description": "Node-API addon with runtime probing for internal access.",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "import": "./lib/index.js",
+      "require": "./lib/index.js",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "README.md",
+    "binding.gyp",
+    "lib/",
+    "scripts/install.js",
+    "src/*.cc",
+    "src/*.h",
+    "src/runtime_probe/*.cc",
+    "src/runtime_probe/*.h"
+  ],
+  "scripts": {
+    "build:js": "tsc -b",
+    "install": "node ./scripts/install.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-harness/dsh-node-addon-internal.git",
+    "directory": "packages/entry"
+  },
+  "bugs": {
+    "url": "https://github.com/deepseek-harness/dsh-node-addon-internal/issues"
+  },
+  "homepage": "https://github.com/deepseek-harness/dsh-node-addon-internal#readme",
+  "dependencies": {
+    "@deepseek-ai/dsh-node-addon-internal-loader": "workspace:*",
+    "node-addon-api": "^8.9.0"
+  },
+  "optionalDependencies": {
+    "@deepseek-ai/dsh-node-addon-internal-darwin-arm64": "workspace:*",
+    "@deepseek-ai/dsh-node-addon-internal-darwin-x64": "workspace:*",
+    "@deepseek-ai/dsh-node-addon-internal-linux-arm64-gnu": "workspace:*",
+    "@deepseek-ai/dsh-node-addon-internal-linux-x64-gnu": "workspace:*"
+  }
+}

@@ -1,0 +1,17 @@
+/.cache/
+/.claude/
+/.env
+/.env.*
+/build/
+coverage/
+dist/
+node_modules/
+/package-lock.json
+/prebuilt/
+/packages/entry/build/
+/packages/entry/lib/
+/packages/loader/lib/
+/packages/*/prebuilt/
+pnpm-publish-summary.json
+*.log
+*.tsbuildinfo

@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "files": [],
+  "include": ["scripts/**/*.ts"],
+  "references": [
+    { "path": "./packages/loader" },
+    { "path": "./packages/entry" }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "name": "@deepseek-ai/dsh-node-addon-internal-loader",
+  "version": "0.0.1",
+  "type": "commonjs",
+  "description": "Shared loader for @deepseek-ai/dsh-node-addon-internal entry and platform packages.",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "import": "./lib/index.js",
+      "require": "./lib/index.js",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "README.md",
+    "lib/"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build:js": "tsc -b"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-harness/dsh-node-addon-internal.git",
+    "directory": "packages/loader"
+  },
+  "bugs": {
+    "url": "https://github.com/deepseek-harness/dsh-node-addon-internal/issues"
+  },
+  "homepage": "https://github.com/deepseek-harness/dsh-node-addon-internal#readme"
+}
