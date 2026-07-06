@@ -6,8 +6,6 @@
 namespace internal_require {
 namespace {
 
-constexpr uint32_t kMaxPlausibleEmbedderFields = 4096;
-
 using ContextSretFn = void (*)(void* /*this*/, void* /*ret*/);
 
 bool GetCurrentContextUsesRcxThis(const uint8_t* code, size_t len) {
@@ -59,16 +57,11 @@ Result<CurrentContextRead> ReadWin32X64CurrentV8Context(
   const uint32_t embedder_fields = symbols.get_fields(context);
   DebugTrace("embedder_fields=%u (realm_slot=%d)",
               embedder_fields, kRealmSlot);
-  if (embedder_fields <= static_cast<uint32_t>(kRealmSlot)) {
-    return Result<CurrentContextRead>::Failure(Status::Failure(
-        ProbeStatus::kUnsupportedNoRealm,
-        "current context has too few embedder data fields"));
-  }
-  if (embedder_fields > kMaxPlausibleEmbedderFields) {
+  if (!IsEmbedderFieldCountPlausible(embedder_fields)) {
     DebugTrace("context rejected: implausible embedder fields=%u",
                 embedder_fields);
     return Result<CurrentContextRead>::Failure(Status::Failure(
-        ProbeStatus::kUnsupportedNoContext,
+        ProbeStatus::kUnsupportedNoRealm,
         "win32-x64 context embedder field count is implausible"));
   }
 

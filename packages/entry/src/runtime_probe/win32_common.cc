@@ -1,5 +1,6 @@
 #if defined(_WIN32)
 
+#include "getter_decoder.h"
 #include "helper.h"
 #include "platform.h"
 
@@ -384,6 +385,10 @@ const WindowsVtableGetter* ResolveBuiltinModuleRequireGetterFromParsedVtable(
 
 }  // namespace
 
+bool IsPlatformReadableRange(const void* address, size_t size) {
+  return IsWindowsReadableRange(address, size);
+}
+
 void* LookupPlatformProcessSymbol(std::string_view name) {
   const std::array<std::wstring_view, 3> modules = {
       std::wstring_view{},
@@ -492,6 +497,14 @@ Result<GetterSymbol> ResolvePlatformBuiltinModuleRequireGetterFallback(
 
     if (stats.executable_candidates <= kMaxWindowsVtableCandidateTrace) {
       TraceWindowsCodeBytes("win32 vtable executable candidate", slot, candidate);
+    }
+
+    // The decoder copies a fixed instruction window out of the candidate.
+    // Skip candidates that sit too close to the end of their region so the
+    // parse can never read past mapped memory.
+    if (!IsWindowsReadableRange(candidate, kGetterCodeWindowBytes)) {
+      stats.unreadable++;
+      continue;
     }
 
     auto pattern = ParseBuiltinModuleRequireGetterOffset(candidate);

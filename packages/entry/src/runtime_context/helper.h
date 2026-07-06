@@ -5,6 +5,11 @@
 
 namespace internal_require {
 
+// A v8::Context exposes the realm in a fixed embedder slot. Any field count at
+// or below that slot cannot hold a realm; an implausibly large one means the
+// pointer is not a real context. Shared by every platform's context reader.
+constexpr uint32_t kMaxPlausibleEmbedderFields = 4096;
+
 using GetCurrentContextFn = void* (*)(void*);
 using GetNumberOfEmbedderDataFieldsFn = uint32_t (*)(void*);
 
@@ -20,6 +25,8 @@ struct CurrentContextRead {
 };
 
 void TraceRuntimeContextCodeBytes(const char* label, void* fn);
+
+bool IsEmbedderFieldCountPlausible(uint32_t embedder_fields);
 
 Result<CurrentContextRead> ReadCurrentV8Context(
     void* isolate,

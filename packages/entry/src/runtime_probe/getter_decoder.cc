@@ -12,13 +12,12 @@ namespace {
 constexpr size_t kMaxReasonableRealmOffset = 0x4000;
 
 // Longest getter body we recognize (frame-pointer prologue + disp32 load +
-// struct-return epilogue + ret) fits in 14 bytes. Keep the copied window at 16
-// to match the historical read footprint: the Windows vtable scanner parses
-// arbitrary executable candidates, so this must not read further than the
-// original fixed-16-byte probe did. The decoders fail closed if a body needs
-// more than the window holds.
-constexpr size_t kX64CodeWindow = 16;
-constexpr size_t kArm64WordWindow = 3;
+// struct-return epilogue + ret) fits in 14 bytes. The copied window is
+// kGetterCodeWindowBytes (16): callers that scan arbitrary code (the Windows
+// vtable scanner) guarantee that many readable bytes, so the decoder must not
+// read further. It fails closed if a body needs more than the window holds.
+constexpr size_t kX64CodeWindow = kGetterCodeWindowBytes;
+constexpr size_t kArm64WordWindow = kGetterCodeWindowBytes / sizeof(uint32_t);
 
 bool IsPlausibleOffset(size_t offset) {
   return offset != 0 &&

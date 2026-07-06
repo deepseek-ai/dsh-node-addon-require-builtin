@@ -12,6 +12,14 @@ void TraceRuntimeContextCodeBytes(const char* label, void* fn) {
   DebugTraceBytes(label, bytes.data(), bytes.size());
 }
 
+bool IsEmbedderFieldCountPlausible(uint32_t embedder_fields) {
+  // The realm lives in a fixed slot, so the context must expose more than that
+  // many fields; an implausibly large count means the pointer we read is not a
+  // real v8::Context and we should fail closed rather than trust it.
+  return embedder_fields > static_cast<uint32_t>(kRealmSlot) &&
+      embedder_fields <= kMaxPlausibleEmbedderFields;
+}
+
 Result<CurrentContextRead> ReadDirectCurrentV8Context(
     const char* platform,
     void* isolate,
@@ -34,10 +42,10 @@ Result<CurrentContextRead> ReadDirectCurrentV8Context(
   const uint32_t embedder_fields = symbols.get_fields(context);
   DebugTrace("embedder_fields=%u (realm_slot=%d)",
               embedder_fields, kRealmSlot);
-  if (embedder_fields <= static_cast<uint32_t>(kRealmSlot)) {
+  if (!IsEmbedderFieldCountPlausible(embedder_fields)) {
     return Result<CurrentContextRead>::Failure(Status::Failure(
         ProbeStatus::kUnsupportedNoRealm,
-        "current context has too few embedder data fields"));
+        "current context embedder field count is implausible"));
   }
 
   CurrentContextRead read;

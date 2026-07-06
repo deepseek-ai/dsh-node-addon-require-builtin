@@ -71,7 +71,7 @@ void PushDisp32(std::vector<uint8_t>* out, uint32_t value) {
 }
 
 std::vector<uint32_t> Arm64Words(std::vector<uint32_t> words) {
-  words.resize(3, 0);
+  words.resize(4, 0);
   return words;
 }
 

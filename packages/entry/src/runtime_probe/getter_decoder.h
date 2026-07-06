@@ -7,6 +7,11 @@
 
 namespace internal_require {
 
+// Number of bytes each matcher copies out of a candidate getter before
+// decoding. Callers that hand the matchers an arbitrary code pointer (e.g. the
+// Windows vtable scanner) must ensure at least this many bytes are readable.
+constexpr size_t kGetterCodeWindowBytes = 16;
+
 // The builtin_module_require getter is a tiny accessor that loads a pointer
 // field from `this` (the Realm) at a fixed offset and returns it. Rather than
 // comparing a fixed run of raw opcode bytes, each architecture decodes the

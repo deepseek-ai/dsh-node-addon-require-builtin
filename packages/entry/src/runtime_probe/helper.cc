@@ -28,6 +28,14 @@ Result<void*> ReadRealmVptr(void* realm) {
         ProbeStatus::kUnsupportedNoRealm, "realm pointer is not plausible"));
   }
 
+  // The realm pointer is derived from private runtime state; confirm the vptr
+  // word is actually mapped before dereferencing so a bad probe fails closed.
+  if (!IsPlatformReadableRange(realm, sizeof(void*))) {
+    return Result<void*>::Failure(Status::Failure(
+        ProbeStatus::kUnsupportedNoRealm,
+        "realm pointer does not point at readable memory"));
+  }
+
   void* vptr = nullptr;
   std::memcpy(&vptr, realm, sizeof(vptr));
   if (!IsPointerAligned(reinterpret_cast<uintptr_t>(vptr))) {
@@ -76,10 +84,19 @@ Result<napi_value> ReadAndValidateRequireBuiltinHandle(napi_env env,
                                                        const GetterPattern& pattern) {
   napi_value candidate_from_field = nullptr;
   // Private layout read: Realm + parsed offset is expected to contain the same
-  // handle word returned by PrincipalRealm::builtin_module_require().
-  std::memcpy(&candidate_from_field,
-              static_cast<const uint8_t*>(realm) + pattern.offset,
-              sizeof(candidate_from_field));
+  // handle word returned by PrincipalRealm::builtin_module_require(). Confirm
+  // the field is mapped first so an implausible offset fails closed rather than
+  // faulting.
+  const void* field = static_cast<const uint8_t*>(realm) + pattern.offset;
+  if (!IsPlatformReadableRange(field, sizeof(candidate_from_field))) {
+    DebugTrace("requireBuiltin field not readable: realm=%s offset=%s",
+               Hex(reinterpret_cast<uintptr_t>(realm)).c_str(),
+               Hex(pattern.offset).c_str());
+    return Result<napi_value>::Failure(Status::Failure(
+        ProbeStatus::kUnsupportedHandleMode,
+        "Realm field at parsed offset is not readable"));
+  }
+  std::memcpy(&candidate_from_field, field, sizeof(candidate_from_field));
   DebugTrace("requireBuiltin field read: realm=%s offset=%s value=%s",
               Hex(reinterpret_cast<uintptr_t>(realm)).c_str(),
               Hex(pattern.offset).c_str(),
