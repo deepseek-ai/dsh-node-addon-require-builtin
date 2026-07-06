@@ -25,6 +25,7 @@ const buildOptions: BuildTagOptions = backend === BACKEND_NAPI
 const outputMode = process.env.DSH_NODE_ADDON_INTERNAL_BUILD_OUTPUT || 'build';
 const commonSources = [
   path.join(packageRoot, 'src', 'node_api_addon.cc'),
+  path.join(packageRoot, 'src', 'debug_trace.cc'),
   path.join(packageRoot, 'src', 'native_types.cc'),
   path.join(packageRoot, 'src', 'internal_require_probe.cc'),
   path.join(packageRoot, 'src', 'runtime_context', 'helper.cc'),

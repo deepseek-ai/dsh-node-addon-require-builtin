@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdio>
 #include <cstring>
 #include <string>
 #include <string_view>
@@ -169,7 +170,7 @@ bool IsWindowsReadableRange(const void* address, size_t size) {
 void TraceWindowsAddressInfo(const char* label,
                              void* address,
                              const WindowsAddressInfo& info) {
-  TracePrintf(
+  DebugTrace(
       "%s address=%s module=%s region=[%s,%s) protect=0x%lx path=%s",
       label,
       Hex(reinterpret_cast<uintptr_t>(address)).c_str(),
@@ -181,34 +182,29 @@ void TraceWindowsAddressInfo(const char* label,
 }
 
 void TraceWindowsCodeBytes(const char* label, size_t slot, void* fn) {
-  if (!TraceEnabled() || fn == nullptr) return;
+  if (!DebugTraceEnabled() || fn == nullptr) return;
   WindowsAddressInfo info;
   const uintptr_t fn_address = reinterpret_cast<uintptr_t>(fn);
   if (!QueryWindowsAddressInfo(fn, &info) ||
       fn_address < info.region_start ||
       fn_address > info.region_end ||
       info.region_end - fn_address < 16) {
-    TracePrintf("%s slot=%zu fn=%s bytes=<unavailable>",
+    DebugTrace("%s slot=%zu fn=%s bytes=<unavailable>",
                 label,
                 slot,
                 Hex(fn_address).c_str());
     return;
   }
-  unsigned char bytes[16] = {0};
-  std::memcpy(bytes, fn, sizeof(bytes));
-  TracePrintf(
-      "%s slot=%zu fn=%s bytes=%02x %02x %02x %02x %02x %02x %02x %02x "
-      "%02x %02x %02x %02x %02x %02x %02x %02x",
-      label,
-      slot,
-      Hex(reinterpret_cast<uintptr_t>(fn)).c_str(),
-      bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6],
-      bytes[7], bytes[8], bytes[9], bytes[10], bytes[11], bytes[12],
-      bytes[13], bytes[14], bytes[15]);
+  std::array<unsigned char, 16> bytes{};
+  std::memcpy(bytes.data(), fn, bytes.size());
+  char scratch[64];
+  std::snprintf(scratch, sizeof(scratch), "%s slot=%zu fn=%s",
+                label, slot, Hex(fn_address).c_str());
+  DebugTraceBytes(scratch, bytes.data(), bytes.size());
 }
 
 void TraceWindowsVtableScanSummary(const WindowsVtableScanStats& stats) {
-  TracePrintf(
+  DebugTrace(
       "win32 vtable scan summary: unaligned=%zu address_query_failed=%zu "
       "different_module=%zu unreadable=%zu non_executable=%zu "
       "executable_candidates=%zu parse_failed=%zu pattern_matched=%zu",
@@ -301,7 +297,7 @@ bool NapiFunctionNameEquals(napi_env env,
     return false;
   }
   actual.resize(size);
-  TracePrintf("win32 vtable field function name=%s expected=%.*s",
+  DebugTrace("win32 vtable field function name=%s expected=%.*s",
               actual.c_str(),
               static_cast<int>(expected.size()),
               expected.data());
@@ -325,7 +321,7 @@ const WindowsVtableGetter* ResolveBuiltinModuleRequireGetterFromParsedVtable(
 
   if (best_start == nullptr ||
       best_length < kMinWindowsPerRealmGetterRunLength) {
-    TracePrintf(
+    DebugTrace(
         "win32 vtable per-realm getter run too short: best_length=%zu "
         "min_length=%zu",
         best_length,
@@ -333,7 +329,7 @@ const WindowsVtableGetter* ResolveBuiltinModuleRequireGetterFromParsedVtable(
     return nullptr;
   }
 
-  TracePrintf(
+  DebugTrace(
       "win32 vtable per-realm getter run: start_slot=%zu start_offset=%s "
       "length=%zu",
       best_start->slot,
@@ -349,7 +345,7 @@ const WindowsVtableGetter* ResolveBuiltinModuleRequireGetterFromParsedVtable(
     const void* field =
         static_cast<const uint8_t*>(realm) + getter->pattern.offset;
     if (!IsWindowsReadableRange(field, sizeof(candidate))) {
-      TracePrintf(
+      DebugTrace(
           "win32 vtable field candidate is not readable: index=%zu slot=%zu "
           "offset=%s",
           index,
@@ -358,7 +354,7 @@ const WindowsVtableGetter* ResolveBuiltinModuleRequireGetterFromParsedVtable(
       continue;
     }
     std::memcpy(&candidate, field, sizeof(candidate));
-    TracePrintf(
+    DebugTrace(
         "win32 vtable field candidate index=%zu slot=%zu offset=%s value=%s",
         index,
         slot,
@@ -372,7 +368,7 @@ const WindowsVtableGetter* ResolveBuiltinModuleRequireGetterFromParsedVtable(
       continue;
     }
     if (NapiFunctionNameEquals(env, candidate, kRequireBuiltinName)) {
-      TracePrintf(
+      DebugTrace(
           "win32 vtable selected requireBuiltin getter: index=%zu slot=%zu "
           "offset=%s",
           index,
@@ -382,7 +378,7 @@ const WindowsVtableGetter* ResolveBuiltinModuleRequireGetterFromParsedVtable(
     }
   }
 
-  TracePrintf("win32 vtable per-realm getter run did not contain requireBuiltin");
+  DebugTrace("win32 vtable per-realm getter run did not contain requireBuiltin");
   return nullptr;
 }
 
@@ -399,24 +395,24 @@ void* LookupPlatformProcessSymbol(std::string_view name) {
     HMODULE module = LookupWindowsNodeModule(module_name);
     const std::string module_lookup_name = WindowsModuleLookupName(module_name);
     if (module == nullptr) {
-      TracePrintf("GetModuleHandleW(%s) -> null", module_lookup_name.c_str());
+      DebugTrace("GetModuleHandleW(%s) -> null", module_lookup_name.c_str());
       continue;
     }
     const std::string module_path = WindowsModulePath(module);
-    TracePrintf("GetModuleHandleW(%s) -> %s path=%s",
+    DebugTrace("GetModuleHandleW(%s) -> %s path=%s",
                 module_lookup_name.c_str(),
                 Hex(reinterpret_cast<uintptr_t>(module)).c_str(),
                 module_path.empty() ? "<unknown>" : module_path.c_str());
 
     if (FARPROC symbol = GetProcAddress(module, name.data())) {
-      TracePrintf("GetProcAddress(%s, %.*s) -> %s",
+      DebugTrace("GetProcAddress(%s, %.*s) -> %s",
                   module_lookup_name.c_str(),
                   static_cast<int>(name.size()),
                   name.data(),
                   Hex(reinterpret_cast<uintptr_t>(symbol)).c_str());
       return reinterpret_cast<void*>(symbol);
     }
-    TracePrintf("GetProcAddress(%s, %.*s) -> null",
+    DebugTrace("GetProcAddress(%s, %.*s) -> null",
                 module_lookup_name.c_str(),
                 static_cast<int>(name.size()),
                 name.data());
@@ -424,14 +420,14 @@ void* LookupPlatformProcessSymbol(std::string_view name) {
     const std::string_view alias = WindowsMsvcSymbolName(name);
     if (!alias.empty()) {
       if (FARPROC symbol = GetProcAddress(module, alias.data())) {
-        TracePrintf("GetProcAddress(%s, %.*s) -> %s",
+        DebugTrace("GetProcAddress(%s, %.*s) -> %s",
                     module_lookup_name.c_str(),
                     static_cast<int>(alias.size()),
                     alias.data(),
                     Hex(reinterpret_cast<uintptr_t>(symbol)).c_str());
         return reinterpret_cast<void*>(symbol);
       }
-      TracePrintf("GetProcAddress(%s, %.*s) -> null",
+      DebugTrace("GetProcAddress(%s, %.*s) -> null",
                   module_lookup_name.c_str(),
                   static_cast<int>(alias.size()),
                   alias.data());
@@ -445,11 +441,11 @@ Result<GetterSymbol> ResolvePlatformBuiltinModuleRequireGetterFallback(
     void* realm) {
   auto vptr = ReadRealmVptr(realm);
   if (!vptr.ok()) {
-    TracePrintf("win32 vtable fallback rejected realm before vptr read: %s",
+    DebugTrace("win32 vtable fallback rejected realm before vptr read: %s",
                 vptr.status().message().c_str());
     return Result<GetterSymbol>::Failure(vptr.status());
   }
-  TracePrintf("win32 vtable fallback: realm=%s vptr=%s",
+  DebugTrace("win32 vtable fallback: realm=%s vptr=%s",
               Hex(reinterpret_cast<uintptr_t>(realm)).c_str(),
               Hex(reinterpret_cast<uintptr_t>(vptr.value())).c_str());
 
@@ -457,7 +453,7 @@ Result<GetterSymbol> ResolvePlatformBuiltinModuleRequireGetterFallback(
   if (!QueryWindowsAddressInfo(vptr.value(), &vptr_info) ||
       vptr_info.module == nullptr ||
       !IsWindowsReadableProtection(vptr_info.protect)) {
-    TracePrintf("win32 vtable fallback rejected vptr image/protection");
+    DebugTrace("win32 vtable fallback rejected vptr image/protection");
     return Result<GetterSymbol>::Failure(Status::Failure(
         ProbeStatus::kUnsupportedNoGetter,
         "realm vptr is not in a readable loaded image"));
@@ -476,7 +472,7 @@ Result<GetterSymbol> ResolvePlatformBuiltinModuleRequireGetterFallback(
       kMaxWindowsRealmVtableScanSlots,
       (vptr_info.region_end - table_address) / sizeof(void*));
   const auto* table = static_cast<void* const*>(vptr.value());
-  TracePrintf(
+  DebugTrace(
       "scanning %zu realm vtable slots for builtin_module_require getter "
       "(table=%s)",
       readable_slots,
@@ -504,7 +500,7 @@ Result<GetterSymbol> ResolvePlatformBuiltinModuleRequireGetterFallback(
       continue;
     }
     stats.pattern_matched++;
-    TracePrintf("win32 vtable slot %zu pattern matched: offset=%s pattern=%s",
+    DebugTrace("win32 vtable slot %zu pattern matched: offset=%s pattern=%s",
                 slot,
                 Hex(pattern.value().offset).c_str(),
                 pattern.value().pattern.c_str());
@@ -517,7 +513,7 @@ Result<GetterSymbol> ResolvePlatformBuiltinModuleRequireGetterFallback(
           env, realm, parsed_getters);
   if (target != nullptr) {
     TraceWindowsVtableScanSummary(stats);
-    TracePrintf(
+    DebugTrace(
         "resolved builtin_module_require getter from per-realm vtable sequence "
         "slot=%zu address=%s offset=%s pattern=%s",
         target->slot,
@@ -548,7 +544,7 @@ Result<ImageValidation> ValidatePlatformRuntimeImagePointers(void* getter,
   if (!QueryWindowsAddressInfo(getter, &getter_info) ||
       getter_info.module == nullptr ||
       !IsWindowsExecutableProtection(getter_info.protect)) {
-    TracePrintf("win32 image validation rejected getter address=%s",
+    DebugTrace("win32 image validation rejected getter address=%s",
                 Hex(reinterpret_cast<uintptr_t>(getter)).c_str());
     return Result<ImageValidation>::Failure(Status::Failure(
         ProbeStatus::kUnsupportedNoGetter,
@@ -557,7 +553,7 @@ Result<ImageValidation> ValidatePlatformRuntimeImagePointers(void* getter,
   if (!QueryWindowsAddressInfo(realm_vptr, &vptr_info) ||
       vptr_info.module == nullptr ||
       !IsWindowsReadableProtection(vptr_info.protect)) {
-    TracePrintf("win32 image validation rejected realm vptr=%s",
+    DebugTrace("win32 image validation rejected realm vptr=%s",
                 Hex(reinterpret_cast<uintptr_t>(realm_vptr)).c_str());
     return Result<ImageValidation>::Failure(Status::Failure(
         ProbeStatus::kUnsupportedNoRealm,
@@ -569,14 +565,14 @@ Result<ImageValidation> ValidatePlatformRuntimeImagePointers(void* getter,
   image.getter_image = getter_info.module_path;
   image.vptr_image = vptr_info.module_path;
   if (getter_info.module != vptr_info.module) {
-    TracePrintf("win32 image validation module mismatch: getter_module=%s vptr_module=%s",
+    DebugTrace("win32 image validation module mismatch: getter_module=%s vptr_module=%s",
                 Hex(reinterpret_cast<uintptr_t>(getter_info.module)).c_str(),
                 Hex(reinterpret_cast<uintptr_t>(vptr_info.module)).c_str());
     return Result<ImageValidation>::Failure(Status::Failure(
         ProbeStatus::kUnsupportedNoRealm,
         "realm vptr image does not match getter image"));
   }
-  TracePrintf("win32 image validation ok: getter and vptr module match");
+  DebugTrace("win32 image validation ok: getter and vptr module match");
   return Result<ImageValidation>::Ok(image);
 }
 

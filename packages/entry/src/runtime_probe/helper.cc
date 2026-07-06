@@ -21,7 +21,7 @@ using BuiltinModuleRequireGetterSretFn = void (*)(void*, void*);
 
 Result<void*> ReadRealmVptr(void* realm) {
   const uintptr_t realm_address = reinterpret_cast<uintptr_t>(realm);
-  TracePrintf("reading Realm vptr from realm=%s", Hex(realm_address).c_str());
+  DebugTrace("reading Realm vptr from realm=%s", Hex(realm_address).c_str());
   if (realm_address < kMinPlausiblePointer ||
       (realm_address % alignof(void*)) != 0) {
     return Result<void*>::Failure(Status::Failure(
@@ -35,7 +35,7 @@ Result<void*> ReadRealmVptr(void* realm) {
         ProbeStatus::kUnsupportedNoRealm,
         "realm vptr is null or unaligned"));
   }
-  TracePrintf("Realm vptr=%s",
+  DebugTrace("Realm vptr=%s",
               Hex(reinterpret_cast<uintptr_t>(vptr)).c_str());
   return Result<void*>::Ok(vptr);
 }
@@ -47,7 +47,7 @@ void* LookupProcessSymbol(std::string_view name) {
 Result<GetterSymbol> ResolveBuiltinModuleRequireGetter(napi_env env,
                                                        void* realm) {
   void* getter = LookupProcessSymbol(kSymBuiltinModuleRequireGetter);
-  TracePrintf("LookupProcessSymbol(builtin_module_require getter) -> %p", getter);
+  DebugTrace("LookupProcessSymbol(builtin_module_require getter) -> %p", getter);
   if (getter == nullptr) {
     return ResolvePlatformBuiltinModuleRequireGetterFallback(env, realm);
   }
@@ -80,7 +80,7 @@ Result<napi_value> ReadAndValidateRequireBuiltinHandle(napi_env env,
   std::memcpy(&candidate_from_field,
               static_cast<const uint8_t*>(realm) + pattern.offset,
               sizeof(candidate_from_field));
-  TracePrintf("requireBuiltin field read: realm=%s offset=%s value=%s",
+  DebugTrace("requireBuiltin field read: realm=%s offset=%s value=%s",
               Hex(reinterpret_cast<uintptr_t>(realm)).c_str(),
               Hex(pattern.offset).c_str(),
               Hex(reinterpret_cast<uintptr_t>(candidate_from_field)).c_str());
@@ -95,13 +95,13 @@ Result<napi_value> ReadAndValidateRequireBuiltinHandle(napi_env env,
     auto getter_fn = reinterpret_cast<BuiltinModuleRequireGetterFn>(getter);
     candidate_from_getter = getter_fn(realm);
   }
-  TracePrintf("requireBuiltin getter call: getter=%s mode=%s value=%s",
+  DebugTrace("requireBuiltin getter call: getter=%s mode=%s value=%s",
               Hex(reinterpret_cast<uintptr_t>(getter)).c_str(),
               pattern.call_mode == GetterCallMode::kSret ? "sret" : "direct",
               Hex(reinterpret_cast<uintptr_t>(candidate_from_getter)).c_str());
 
   if (candidate_from_field != candidate_from_getter) {
-    TracePrintf("requireBuiltin handle mismatch: field=%s getter=%s",
+    DebugTrace("requireBuiltin handle mismatch: field=%s getter=%s",
                 Hex(reinterpret_cast<uintptr_t>(candidate_from_field)).c_str(),
                 Hex(reinterpret_cast<uintptr_t>(candidate_from_getter)).c_str());
     return Result<napi_value>::Failure(Status::Failure(
@@ -116,7 +116,7 @@ Result<napi_value> ReadAndValidateRequireBuiltinHandle(napi_env env,
   if (candidate_from_getter == nullptr ||
       napi_typeof(env, candidate_from_getter, &type) != napi_ok ||
       type != napi_function) {
-    TracePrintf("requireBuiltin handle type validation failed: value=%s type=%d",
+    DebugTrace("requireBuiltin handle type validation failed: value=%s type=%d",
                 Hex(reinterpret_cast<uintptr_t>(candidate_from_getter)).c_str(),
                 static_cast<int>(type));
     return Result<napi_value>::Failure(Status::Failure(

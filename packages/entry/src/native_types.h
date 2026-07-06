@@ -2,6 +2,7 @@
 #define INTERNAL_REQUIRE_NATIVE_TYPES_H_
 
 #include "backend_config.h"
+#include "debug_trace.h"
 
 #include <node_api.h>
 
@@ -161,12 +162,6 @@ class Result {
   std::optional<T> value_;
   Status status_;
 };
-
-// Env-gated native tracing (DSH_NODE_ADDON_INTERNAL_TRACE=1). The probe crosses
-// private ABI boundaries where a mismatch faults before any JS error can be
-// thrown, so this is the only way to localize a hard crash on CI.
-bool TraceEnabled();
-void TracePrintf(const char* format, ...);
 
 std::string Hex(uintptr_t value);
 std::string PlatformName();

@@ -4,6 +4,9 @@
 #include "runtime_context/helper.h"
 #include "runtime_probe/helper.h"
 
+#include <array>
+#include <cstring>
+
 #if INTERNAL_REQUIRE_BACKEND != INTERNAL_REQUIRE_BACKEND_NAPI
 #error "runtime_compat_napi.cc only implements INTERNAL_REQUIRE_BACKEND_NAPI"
 #endif
@@ -63,7 +66,7 @@ Result<RuntimeContext> ReadCurrentContext(napi_env env) {
         ProbeStatus::kUnsupportedNoContext,
         "required V8 current-context symbols were not found"));
   }
-  TracePrintf("symbols: isolate=%p context=%p fields=%p",
+  DebugTrace("symbols: isolate=%p context=%p fields=%p",
               reinterpret_cast<void*>(get_current_isolate),
               reinterpret_cast<void*>(get_current_context),
               reinterpret_cast<void*>(get_fields));
@@ -75,10 +78,10 @@ Result<RuntimeContext> ReadCurrentContext(napi_env env) {
       "GetNumberOfEmbedderDataFields", reinterpret_cast<void*>(get_fields));
 
   RuntimeContext context;
-  TracePrintf("calling Isolate::GetCurrent");
+  DebugTrace("calling Isolate::GetCurrent");
   context.isolate_ptr = get_current_isolate();
   context.isolate = reinterpret_cast<uintptr_t>(context.isolate_ptr);
-  TracePrintf("isolate=%s", Hex(context.isolate).c_str());
+  DebugTrace("isolate=%s", Hex(context.isolate).c_str());
   if (!IsPointerAligned(context.isolate)) {
     return Result<RuntimeContext>::Failure(Status::Failure(
         ProbeStatus::kUnsupportedNoContext,
@@ -115,7 +118,7 @@ Result<RuntimeContext> ReadCurrentContext(napi_env env) {
           "tagged GetAlignedPointerFromEmbedderData symbol not found"));
     }
     context.embedder_data = "tagged kPerContextData=2";
-    TracePrintf("calling SlowGetAlignedPointerFromEmbedderData(tagged)");
+    DebugTrace("calling SlowGetAlignedPointerFromEmbedderData(tagged)");
     context.realm_ptr = get_aligned_tagged(
         context.context_ptr, kRealmSlot, kPerContextDataTag);
   } else {
@@ -130,12 +133,12 @@ Result<RuntimeContext> ReadCurrentContext(napi_env env) {
           "no compatible GetAlignedPointerFromEmbedderData symbol found"));
     }
     context.embedder_data = "untagged Node 20/22/24 family";
-    TracePrintf("calling SlowGetAlignedPointerFromEmbedderData(untagged)");
+    DebugTrace("calling SlowGetAlignedPointerFromEmbedderData(untagged)");
     context.realm_ptr = get_aligned_untagged(context.context_ptr, kRealmSlot);
   }
 
   context.realm = reinterpret_cast<uintptr_t>(context.realm_ptr);
-  TracePrintf("realm=%s", Hex(context.realm).c_str());
+  DebugTrace("realm=%s", Hex(context.realm).c_str());
   if (!IsPointerAligned(context.realm)) {
     return Result<RuntimeContext>::Failure(Status::Failure(
         ProbeStatus::kUnsupportedNoRealm,
@@ -150,45 +153,40 @@ Result<RuntimeContext> ReadCurrentContext(napi_env env) {
 Result<RuntimeRequireBuiltin> ProbeRuntimeRequireBuiltin(napi_env env) {
   // Main private-ABI entry point: all Node-version-specific work is contained
   // here so the higher-level requireBuiltin probe can stay version-agnostic.
-  TracePrintf("ProbeRuntimeRequireBuiltin: reading current context");
+  DebugTrace("ProbeRuntimeRequireBuiltin: reading current context");
   auto context = ReadCurrentContext(env);
   if (!context.ok()) return Result<RuntimeRequireBuiltin>::Failure(context.status());
 
-  TracePrintf("resolving builtin_module_require getter symbol");
+  DebugTrace("resolving builtin_module_require getter symbol");
   auto getter = ResolveBuiltinModuleRequireGetter(env, context.value().realm_ptr);
   if (!getter.ok()) return Result<RuntimeRequireBuiltin>::Failure(getter.status());
-  TracePrintf("getter=%s", Hex(getter.value().address).c_str());
+  DebugTrace("getter=%s", Hex(getter.value().address).c_str());
 
   auto image = ValidateRuntimeImagePointers(
       context.value().realm_ptr, getter.value().address_ptr);
   if (!image.ok()) return Result<RuntimeRequireBuiltin>::Failure(image.status());
 
-  if (TraceEnabled() && getter.value().address_ptr != nullptr) {
-    const auto* bytes =
-        static_cast<const unsigned char*>(getter.value().address_ptr);
-    TracePrintf(
-        "getter bytes: %02x %02x %02x %02x %02x %02x %02x %02x "
-        "%02x %02x %02x %02x %02x %02x %02x %02x",
-        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6],
-        bytes[7], bytes[8], bytes[9], bytes[10], bytes[11], bytes[12],
-        bytes[13], bytes[14], bytes[15]);
+  if (DebugTraceEnabled() && getter.value().address_ptr != nullptr) {
+    std::array<unsigned char, 16> bytes{};
+    std::memcpy(bytes.data(), getter.value().address_ptr, bytes.size());
+    DebugTraceBytes("getter", bytes.data(), bytes.size());
   }
 
-  TracePrintf("parsing getter offset from machine code");
+  DebugTrace("parsing getter offset from machine code");
   auto pattern = ParseBuiltinModuleRequireGetterOffset(getter.value().address_ptr);
   if (!pattern.ok()) return Result<RuntimeRequireBuiltin>::Failure(pattern.status());
-  TracePrintf("parsed offset=%s pattern=%s",
+  DebugTrace("parsed offset=%s pattern=%s",
               Hex(pattern.value().offset).c_str(),
               pattern.value().pattern.c_str());
 
-  TracePrintf("reading and validating requireBuiltin handle from realm field");
+  DebugTrace("reading and validating requireBuiltin handle from realm field");
   auto require_builtin = ReadAndValidateRequireBuiltinHandle(
       env,
       context.value().realm_ptr, getter.value().address_ptr, pattern.value());
   if (!require_builtin.ok()) {
     return Result<RuntimeRequireBuiltin>::Failure(require_builtin.status());
   }
-  TracePrintf("requireBuiltin handle validated");
+  DebugTrace("requireBuiltin handle validated");
 
   RuntimeRequireBuiltin result;
   result.value = require_builtin.value();

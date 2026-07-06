@@ -4,32 +4,9 @@
 
 #include <node_version.h>
 
-#include <cstdarg>
-#include <cstdio>
-#include <cstdlib>
 #include <sstream>
 
 namespace internal_require {
-
-bool TraceEnabled() {
-  static const bool enabled = [] {
-    const char* value = std::getenv("DSH_NODE_ADDON_INTERNAL_TRACE");
-    return value != nullptr && value[0] != '\0' && value[0] != '0';
-  }();
-  return enabled;
-}
-
-void TracePrintf(const char* format, ...) {
-  if (!TraceEnabled()) return;
-  std::fputs("[dsh-probe] ", stderr);
-  va_list args;
-  va_start(args, format);
-  std::vfprintf(stderr, format, args);
-  va_end(args);
-  std::fputc('\n', stderr);
-  // Flush eagerly: a following ABI call may crash before normal teardown.
-  std::fflush(stderr);
-}
 
 void ProbeState::ApplyRuntimeRequireBuiltin(
     const RuntimeRequireBuiltin& runtime) {

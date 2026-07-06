@@ -9,6 +9,7 @@
       "target_name": "internal_require",
       "sources": [
         "src/node_api_addon.cc",
+        "src/debug_trace.cc",
         "src/native_types.cc",
         "src/runtime_context/helper.cc",
         "src/runtime_context/platform.cc",

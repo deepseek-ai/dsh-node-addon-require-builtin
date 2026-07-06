@@ -36,19 +36,19 @@ Result<CurrentContextRead> ReadWin32X64CurrentV8Context(
   std::array<uint8_t, 24> prologue{};
   std::memcpy(prologue.data(), symbols.get_current_context, prologue.size());
   if (!GetCurrentContextUsesRcxThis(prologue.data(), prologue.size())) {
-    TracePrintf(
+    DebugTrace(
         "win32-x64 GetCurrentContext prologue rejected: no early RCX-this load");
     return Result<CurrentContextRead>::Failure(Status::Failure(
         ProbeStatus::kUnsupportedNoContext,
         "win32-x64 GetCurrentContext prologue does not match supported this/sret ABI"));
   }
-  TracePrintf("win32-x64 GetCurrentContext ABI accepted: this=rcx sret=rdx");
+  DebugTrace("win32-x64 GetCurrentContext ABI accepted: this=rcx sret=rdx");
 
   void* context = nullptr;
-  TracePrintf("calling Isolate::GetCurrentContext(isolate) (win32-x64 sret)");
+  DebugTrace("calling Isolate::GetCurrentContext(isolate) (win32-x64 sret)");
   reinterpret_cast<ContextSretFn>(symbols.get_current_context)(isolate, &context);
   const uintptr_t context_address = reinterpret_cast<uintptr_t>(context);
-  TracePrintf("context=%s (win32-x64 this-rcx/sret-rdx)",
+  DebugTrace("context=%s (win32-x64 this-rcx/sret-rdx)",
               Hex(context_address).c_str());
   if (!IsPointerAligned(context_address)) {
     return Result<CurrentContextRead>::Failure(Status::Failure(
@@ -57,7 +57,7 @@ Result<CurrentContextRead> ReadWin32X64CurrentV8Context(
   }
 
   const uint32_t embedder_fields = symbols.get_fields(context);
-  TracePrintf("embedder_fields=%u (realm_slot=%d)",
+  DebugTrace("embedder_fields=%u (realm_slot=%d)",
               embedder_fields, kRealmSlot);
   if (embedder_fields <= static_cast<uint32_t>(kRealmSlot)) {
     return Result<CurrentContextRead>::Failure(Status::Failure(
@@ -65,7 +65,7 @@ Result<CurrentContextRead> ReadWin32X64CurrentV8Context(
         "current context has too few embedder data fields"));
   }
   if (embedder_fields > kMaxPlausibleEmbedderFields) {
-    TracePrintf("context rejected: implausible embedder fields=%u",
+    DebugTrace("context rejected: implausible embedder fields=%u",
                 embedder_fields);
     return Result<CurrentContextRead>::Failure(Status::Failure(
         ProbeStatus::kUnsupportedNoContext,
