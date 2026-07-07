@@ -38,6 +38,8 @@ Result<CurrentContextRead> ReadCurrentV8Context(
   return ReadWin32Arm64CurrentV8Context(isolate, symbols);
 #elif defined(_WIN32) && defined(_M_X64)
   return ReadWin32X64CurrentV8Context(isolate, symbols);
+#elif defined(_WIN32) && defined(_M_IX86)
+  return ReadWin32Ia32CurrentV8Context(isolate, symbols);
 #else
   return UnsupportedContextReader(
       "unsupported platform/architecture current-context reader");

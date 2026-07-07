@@ -41,6 +41,7 @@ const commonSources = [
   path.join(packageRoot, 'src', 'runtime_context', 'linux_glibc_x64.cc'),
   path.join(packageRoot, 'src', 'runtime_context', 'win32_arm64.cc'),
   path.join(packageRoot, 'src', 'runtime_context', 'win32_x64.cc'),
+  path.join(packageRoot, 'src', 'runtime_context', 'win32_ia32.cc'),
   path.join(packageRoot, 'src', 'runtime_probe', 'helper.cc'),
   path.join(packageRoot, 'src', 'runtime_probe', 'platform.cc'),
   path.join(packageRoot, 'src', 'runtime_probe', 'getter_decoder.cc'),
@@ -52,6 +53,7 @@ const commonSources = [
   path.join(packageRoot, 'src', 'runtime_probe', 'linux_glibc_x64.cc'),
   path.join(packageRoot, 'src', 'runtime_probe', 'win32_arm64.cc'),
   path.join(packageRoot, 'src', 'runtime_probe', 'win32_x64.cc'),
+  path.join(packageRoot, 'src', 'runtime_probe', 'win32_ia32.cc'),
 ];
 const sources = [
   ...commonSources,

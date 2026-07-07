@@ -16,6 +16,7 @@ using internal_require::MatchArm64FieldGetter;
 using internal_require::MatchArm64Win64FieldGetter;
 using internal_require::MatchX64SysVFieldGetter;
 using internal_require::MatchX64Win64FieldGetter;
+using internal_require::MatchX86ThiscallFieldGetter;
 using internal_require::Result;
 
 namespace {
@@ -247,10 +248,59 @@ int main() {
   // Sret store from a different register than the load: rejected.
   ExpectReject("win32-arm64 sret store-src-mismatch",
                MatchArm64Win64FieldGetter(
-                   Arm64Words({0xf9400000u | (0x08u << 10) | 0x08u,
-                               0xf9000020u | 0x09u, 0xd65f03c0u})
+                   Arm64Words({0xf9400000u | (0x08u << 10) | 0x09u,
+                               0xf9000020u | 0x08u, 0xd65f03c0u})
                        .data(),
                    "test"));
+
+  // --- win32-x86 (MSVC __thiscall): this=ecx, sret via ret imm16 ---------
+  // Direct: mov eax,[ecx+disp8]; ret  -> 8b 41 <d8> c3
+  ExpectOk("win32-x86 direct mov-eax-[ecx]-disp8-ret",
+           MatchX86ThiscallFieldGetter(
+               Pad16({0x8b, 0x41, 0x28, 0xc3}).data(), "test"),
+           0x28, GetterCallMode::kDirectReturn);
+
+  // Direct disp32: mov eax,[ecx+disp32]; ret  -> 8b 81 <d32> c3
+  {
+    std::vector<uint8_t> code = {0x8b, 0x81};
+    PushDisp32(&code, 0x1c0);
+    code.push_back(0xc3);
+    ExpectOk("win32-x86 direct mov-eax-[ecx]-disp32-ret",
+             MatchX86ThiscallFieldGetter(Pad16(code).data(), "test"),
+             0x1c0, GetterCallMode::kDirectReturn);
+  }
+
+  // Sret: mov ecx,[ecx+disp8]; mov [sret],ecx; mov eax,[esp+4]; ret 4
+  //   mov eax,[esp+4] -> 8b 44 24 04 (SIB, base=esp, ignored)
+  //   ret 4           -> c2 04 00
+  ExpectOk("win32-x86 sret ret-imm16",
+           MatchX86ThiscallFieldGetter(
+               Pad16({0x8b, 0x49, 0x30, 0x8b, 0x44, 0x24, 0x04, 0x89, 0x08,
+                      0xc2, 0x04, 0x00})
+                   .data(),
+               "test"),
+           0x30, GetterCallMode::kSret);
+
+  // Framed sret: push ebp; mov ebp,esp; mov eax,[ecx+disp32]; pop ebp; ret 4
+  {
+    std::vector<uint8_t> code = {0x55, 0x8b, 0xec, 0x8b, 0x81};
+    PushDisp32(&code, 0x1c8);
+    for (uint8_t b : {0x5d, 0xc2, 0x04, 0x00}) code.push_back(b);
+    ExpectOk("win32-x86 framed sret ret-imm16",
+             MatchX86ThiscallFieldGetter(Pad16(code).data(), "test"),
+             0x1c8, GetterCallMode::kSret);
+  }
+
+  // Direct getter that returns via a register other than eax: rejected.
+  // mov ecx,[ecx+disp8]; ret -> 8b 49 20 c3
+  ExpectReject("win32-x86 direct non-eax return",
+               MatchX86ThiscallFieldGetter(
+                   Pad16({0x8b, 0x49, 0x20, 0xc3}).data(), "test"));
+
+  // Zero offset is implausible: mov eax,[ecx]; ret -> 8b 01 c3
+  ExpectReject("win32-x86 zero-offset",
+               MatchX86ThiscallFieldGetter(
+                   Pad16({0x8b, 0x01, 0xc3}).data(), "test"));
 
   // --- rejections --------------------------------------------------------
   // Reads the wrong base register (rsi=6 instead of rdi): 48 8b 46 08 c3

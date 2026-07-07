@@ -6,7 +6,8 @@
 namespace internal_require {
 namespace {
 
-using ContextSretFn = void (*)(void* /*this*/, void* /*ret*/);
+using ContextSretFn = void (INTERNAL_REQUIRE_MEMBER_ABI*)(void* /*this*/,
+                                                          void* /*ret*/);
 
 bool GetCurrentContextUsesRcxThis(const uint8_t* code, size_t len) {
   size_t i = 0;

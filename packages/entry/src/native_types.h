@@ -19,6 +19,19 @@ namespace internal_require {
 
 struct RuntimeRequireBuiltin;
 
+// Calling convention of a non-static C++ member function. On 32-bit x86 (MSVC)
+// that is __thiscall: `this` is passed in ECX and the callee cleans up its
+// stack arguments (`ret imm16`). On x86-64 and AArch64 the member ABI is folded
+// into the single platform convention, so this expands to nothing there. The
+// private V8 member functions the probe resolves at runtime must be called
+// through pointers carrying this convention, or the x86 call would push `this`
+// on the stack and corrupt the frame.
+#if defined(_WIN32) && defined(_M_IX86)
+#define INTERNAL_REQUIRE_MEMBER_ABI __thiscall
+#else
+#define INTERNAL_REQUIRE_MEMBER_ABI
+#endif
+
 constexpr int kRealmSlot = 38;
 constexpr uint16_t kPerContextDataTag = 2;
 constexpr std::string_view kCjsLoaderTarget = "internal/modules/cjs/loader";

@@ -20,6 +20,7 @@
         "src/runtime_context/linux_glibc_x64.cc",
         "src/runtime_context/win32_arm64.cc",
         "src/runtime_context/win32_x64.cc",
+        "src/runtime_context/win32_ia32.cc",
         "src/runtime_probe/helper.cc",
         "src/runtime_probe/platform.cc",
         "src/runtime_probe/getter_decoder.cc",
@@ -31,6 +32,7 @@
         "src/runtime_probe/linux_glibc_x64.cc",
         "src/runtime_probe/win32_arm64.cc",
         "src/runtime_probe/win32_x64.cc",
+        "src/runtime_probe/win32_ia32.cc",
         "src/internal_require_probe.cc"
       ],
       "include_dirs": [

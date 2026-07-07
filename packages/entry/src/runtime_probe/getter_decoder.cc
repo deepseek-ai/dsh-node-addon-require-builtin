@@ -25,6 +25,16 @@ bool IsPlausibleOffset(size_t offset) {
       (offset % alignof(void*)) == 0;
 }
 
+// x86 (32-bit) pointer fields are 4-byte aligned regardless of the host the
+// decoder is compiled on, so the win32-x86 matcher validates against a fixed
+// 4-byte pointer size rather than the host's alignof(void*) (8 on the 64-bit
+// build that also runs the self-test).
+bool IsPlausibleOffset32(size_t offset) {
+  return offset != 0 &&
+      offset <= kMaxReasonableRealmOffset &&
+      (offset % 4) == 0;
+}
+
 Result<GetterPattern> Failure(const char* message) {
   return Result<GetterPattern>::Failure(
       Status::Failure(ProbeStatus::kUnsupportedNoGetter, message));
@@ -262,6 +272,186 @@ bool DecodeMovReg(uint32_t insn) {
   return (insn & kMask) == kPattern;
 }
 
+// --- x86 (32-bit) ---------------------------------------------------------
+//
+// 32-bit x86 has no REX prefix, so the MOV opcodes appear directly (0x8b / 0x89
+// rather than the REX.W-prefixed forms decoded above). MSVC uses __thiscall for
+// member functions: `this` is in ECX, remaining arguments are pushed on the
+// stack, and the callee cleans them up with `ret imm16`. A non-trivial return
+// type such as v8::Local<T> uses a hidden struct-return pointer passed as the
+// first stack argument, so a struct-return getter ends in `ret 4` while a
+// scalar/pointer return that takes no explicit args ends in a bare `ret`.
+
+// 3-bit register encoding (EAX=0, ECX=1).
+constexpr uint8_t kReg32Eax = 0;
+constexpr uint8_t kReg32Ecx = 1;
+
+enum class X86Op {
+  kPushReg,    // 50+r  (frame prologue push, e.g. push ebp)
+  kPopReg,     // 58+r
+  kRet,        // c3
+  kRetImm,     // c2 iw          callee stack cleanup (struct-return arg)
+  kMovRegMem,  // 8b /r          reg <- [base + disp]
+  kMovMemReg,  // 89 /r          [base + disp] <- reg
+  kMovRegReg,  // 8b|89 mod=11   reg <-> reg
+  kUnknown,
+};
+
+struct X86Insn {
+  X86Op op = X86Op::kUnknown;
+  uint8_t reg = 0;         // ModRM.reg operand
+  uint8_t base = 0;        // effective base register of a memory operand
+  int32_t disp = 0;        // memory displacement, or ret imm16
+  bool disp32 = false;     // width of the displacement encoding
+  bool mem_has_sib = false;
+  size_t length = 0;       // bytes consumed (0 => decode failed)
+};
+
+// Decodes one 32-bit x86 instruction. Only the shapes a __thiscall field getter
+// can take are recognized; anything else returns kUnknown so the matcher fails
+// closed. SIB/disp bytes are consumed for length accuracy even when the operand
+// is ignored, so the walker never desynchronizes.
+X86Insn DecodeX86(const uint8_t* p, size_t remaining) {
+  X86Insn insn;
+  if (remaining == 0) return insn;
+
+  if ((p[0] & 0xf8) == 0x50) {  // 50+r push r32
+    insn.op = X86Op::kPushReg;
+    insn.reg = p[0] & 0x7;
+    insn.length = 1;
+    return insn;
+  }
+  if ((p[0] & 0xf8) == 0x58) {  // 58+r pop r32
+    insn.op = X86Op::kPopReg;
+    insn.reg = p[0] & 0x7;
+    insn.length = 1;
+    return insn;
+  }
+  if (p[0] == 0xc3) {
+    insn.op = X86Op::kRet;
+    insn.length = 1;
+    return insn;
+  }
+  if (p[0] == 0xc2) {  // ret imm16
+    if (remaining < 3) return insn;
+    insn.op = X86Op::kRetImm;
+    insn.disp = static_cast<int32_t>(p[1] | (p[2] << 8));
+    insn.length = 3;
+    return insn;
+  }
+
+  const uint8_t opcode = p[0];
+  if ((opcode != 0x8b && opcode != 0x89) || remaining < 2) return insn;
+  const uint8_t modrm = p[1];
+  const uint8_t mod = modrm >> 6;
+  const uint8_t reg = (modrm >> 3) & 0x7;
+  const uint8_t rm = modrm & 0x7;
+
+  if (mod == 0x3) {
+    insn.op = X86Op::kMovRegReg;
+    insn.length = 2;
+    if (opcode == 0x8b) {       // reg <- rm
+      insn.reg = reg;
+      insn.base = rm;
+    } else {                    // rm <- reg
+      insn.reg = rm;
+      insn.base = reg;
+    }
+    return insn;
+  }
+
+  size_t length = 2;
+  uint8_t base = rm;
+  const bool has_sib = (rm == 0x4);
+  if (has_sib) {
+    if (remaining < 3) return insn;
+    base = p[2] & 0x7;  // SIB base register
+    length = 3;
+  }
+
+  int32_t disp = 0;
+  bool disp32 = false;
+  const bool disp32_no_base =
+      (mod == 0x0) && ((!has_sib && rm == 0x5) || (has_sib && base == 0x5));
+  if (disp32_no_base || mod == 0x2) {
+    if (remaining < length + 4) return insn;
+    uint32_t raw = 0;
+    std::memcpy(&raw, p + length, sizeof(raw));
+    disp = static_cast<int32_t>(raw);
+    disp32 = true;
+    length += 4;
+  } else if (mod == 0x1) {
+    if (remaining < length + 1) return insn;
+    disp = static_cast<int8_t>(p[length]);
+    length += 1;
+  }
+
+  insn.op = opcode == 0x8b ? X86Op::kMovRegMem : X86Op::kMovMemReg;
+  insn.reg = reg;
+  insn.base = base;
+  insn.disp = disp;
+  insn.disp32 = disp32;
+  insn.mem_has_sib = has_sib;
+  insn.length = length;
+  return insn;
+}
+
+struct X86Body {
+  bool ok = false;
+  bool found_load = false;     // saw `mov <reg>, [ecx + disp]`
+  uint8_t load_dest = 0;       // register the field was loaded into
+  int32_t offset = 0;
+  bool disp32 = false;
+  bool ret_cleans_stack = false;  // ended with `ret imm16` (struct-return arg)
+};
+
+// Walks a __thiscall field getter, recording the single load from ECX (`this`).
+// Loads and stores through the stack (the hidden sret pointer or register
+// spills) are permitted and ignored. Returns ok=false on any unexpected
+// instruction or if the body does not terminate with a ret form. The struct
+// vs direct return is decided by the terminating ret: __thiscall callees clean
+// up stack arguments, so a struct-return getter (whose hidden return pointer is
+// its one stack argument) ends in `ret 4`, while a pointer/scalar return with
+// no stack arguments ends in a bare `ret`. That ABI-mandated distinction is
+// used instead of guessing from store shapes, which a framed getter's spills
+// could imitate.
+X86Body WalkX86Getter(const uint8_t* code, size_t size) {
+  X86Body body;
+  size_t i = 0;
+  while (i < size) {
+    const X86Insn insn = DecodeX86(code + i, size - i);
+    if (insn.length == 0 || insn.op == X86Op::kUnknown) return body;
+    i += insn.length;
+
+    switch (insn.op) {
+      case X86Op::kPushReg:
+      case X86Op::kPopReg:
+      case X86Op::kMovRegReg:
+      case X86Op::kMovMemReg:
+        break;  // prologue / epilogue / register shuffling / sret store
+      case X86Op::kMovRegMem:
+        if (!insn.mem_has_sib && insn.base == kReg32Ecx) {
+          if (body.found_load) return body;  // getters load one field only
+          body.found_load = true;
+          body.load_dest = insn.reg;
+          body.offset = insn.disp;
+          body.disp32 = insn.disp32;
+        }
+        break;  // loads from [esp+..]/[ebp+..] (sret pointer) are ignored
+      case X86Op::kRet:
+        body.ok = true;
+        return body;
+      case X86Op::kRetImm:
+        body.ok = true;
+        body.ret_cleans_stack = true;
+        return body;
+      case X86Op::kUnknown:
+        return body;
+    }
+  }
+  return body;  // fell off the end without a ret
+}
+
 }  // namespace
 
 Result<GetterPattern> MatchX64SysVFieldGetter(void* getter,
@@ -299,6 +489,41 @@ Result<GetterPattern> MatchX64Win64FieldGetter(void* getter,
   }
   return BuildPattern(platform_tag, "mov-rax-[this-rcx]", body.offset,
                       body.disp32, GetterCallMode::kDirectReturn);
+}
+
+Result<GetterPattern> MatchX86ThiscallFieldGetter(void* getter,
+                                                  std::string_view platform_tag) {
+  std::array<uint8_t, kX64CodeWindow> code{};
+  std::memcpy(code.data(), getter, code.size());
+
+  // __thiscall passes `this` in ECX. A pointer/scalar return comes back in EAX
+  // from a bare `ret`; a non-trivial v8::Local<T> return uses a hidden
+  // struct-return pointer passed on the stack, so the body copies the field
+  // into it and the callee cleans that argument up with `ret 4`.
+  const X86Body body = WalkX86Getter(code.data(), code.size());
+  if (!body.ok || !body.found_load) {
+    return Failure("win32 x86 getter is not a recognized this->field accessor");
+  }
+  if (!IsPlausibleOffset32(static_cast<size_t>(body.offset))) {
+    return Failure("win32 x86 parsed getter offset is implausible");
+  }
+
+  const bool sret = body.ret_cleans_stack;
+  GetterPattern pattern;
+  pattern.offset = static_cast<size_t>(body.offset);
+  pattern.call_mode = sret ? GetterCallMode::kSret : GetterCallMode::kDirectReturn;
+  std::string text(platform_tag);
+  if (sret) {
+    text += " mov-[sret]-[this-ecx]";
+  } else {
+    if (body.load_dest != kReg32Eax) {
+      return Failure("win32 x86 direct getter does not return via eax");
+    }
+    text += " mov-eax-[this-ecx]";
+  }
+  text += body.disp32 ? " disp32" : " disp8";
+  pattern.pattern = std::move(text);
+  return Result<GetterPattern>::Ok(pattern);
 }
 
 Result<GetterPattern> MatchArm64FieldGetter(void* getter,

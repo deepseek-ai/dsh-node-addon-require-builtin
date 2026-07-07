@@ -11,6 +11,7 @@ Result<GetterPattern> ParseLinuxGlibcArm64BuiltinModuleRequireGetterOffset(void*
 Result<GetterPattern> ParseLinuxGlibcX64BuiltinModuleRequireGetterOffset(void* getter);
 Result<GetterPattern> ParseWin32Arm64BuiltinModuleRequireGetterOffset(void* getter);
 Result<GetterPattern> ParseWin32X64BuiltinModuleRequireGetterOffset(void* getter);
+Result<GetterPattern> ParseWin32Ia32BuiltinModuleRequireGetterOffset(void* getter);
 
 }  // namespace internal_require
 

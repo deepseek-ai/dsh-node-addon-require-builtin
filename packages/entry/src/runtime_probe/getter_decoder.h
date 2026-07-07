@@ -56,6 +56,13 @@ Result<GetterPattern> MatchArm64FieldGetter(void* getter,
 Result<GetterPattern> MatchArm64Win64FieldGetter(void* getter,
                                                  std::string_view platform_tag);
 
+// x86 (32-bit) Windows (MSVC __thiscall): `this` in ECX. A pointer/scalar
+// return comes back in EAX from a bare `ret`; a non-trivial return uses a hidden
+// struct-return pointer passed on the stack, so the callee cleans it up with
+// `ret 4`. Selects the call mode from that terminating ret form.
+Result<GetterPattern> MatchX86ThiscallFieldGetter(void* getter,
+                                                  std::string_view platform_tag);
+
 }  // namespace internal_require
 
 #endif  // INTERNAL_REQUIRE_RUNTIME_PROBE_GETTER_DECODER_H_

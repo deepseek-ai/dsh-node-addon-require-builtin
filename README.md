@@ -23,6 +23,7 @@ Published packages use a main package plus platform optional packages:
 @deepseek-ai/dsh-node-addon-internal-linux-arm64-gnu
 @deepseek-ai/dsh-node-addon-internal-linux-x64-gnu
 @deepseek-ai/dsh-node-addon-internal-win32-arm64-msvc
+@deepseek-ai/dsh-node-addon-internal-win32-ia32-msvc
 @deepseek-ai/dsh-node-addon-internal-win32-x64-msvc
 @deepseek-ai/dsh-node-addon-internal-loader
 ```
@@ -107,13 +108,14 @@ The supported optional prebuild target set is intentionally conservative:
 | macOS x64 (`darwin-x64`) | Supported | Supported | Supported | Supported |
 | Linux glibc arm64 (`linux-arm64-gnu`) | Supported | Supported | Supported | Supported |
 | Linux glibc x64 (`linux-x64-gnu`) | Supported | Supported | Supported | Supported |
-| Windows arm64 MSVC (`win32-arm64-msvc`) | Pending CI | Pending CI | Pending CI | Pending CI |
+| Windows arm64 MSVC (`win32-arm64-msvc`) | Supported | Supported | Supported | Supported |
+| Windows x86 MSVC (`win32-ia32-msvc`) | Supported | Supported | No 32-bit runtime | No 32-bit runtime |
 | Windows x64 MSVC (`win32-x64-msvc`) | Supported | Supported | Supported | Supported |
 
 Supported optional packages publish `napi-v9` plus Node-major-specific
 `nodeabi` binaries for Node 20, 22, 24, and 26. Linux musl is not published yet.
-Windows arm64 package metadata is present, but CI is temporarily disabled while
-the `win32-arm64-msvc` runtime path is fixed.
+Node.js stopped shipping 32-bit Windows binaries after v22, so `win32-ia32-msvc`
+covers only Node 20 and 22.
 See [docs/support-matrix.md](docs/support-matrix.md).
 
 ## License

@@ -23,6 +23,7 @@ jobs:
           - linux-arm64-gnu
           - linux-x64-gnu
           - win32-arm64-msvc
+          - win32-ia32-msvc
           - win32-x64-msvc
         include:
           - platform: darwin-arm64
@@ -40,9 +41,20 @@ jobs:
           - platform: win32-arm64-msvc
             runner: windows-11-arm
             optional: true
+          - platform: win32-ia32-msvc
+            runner: windows-2025
+            optional: true
+            nodearch: x86
           - platform: win32-x64-msvc
             runner: windows-2025
             optional: true
+        exclude:
+          # Node.js ships no 32-bit Windows runtime for v23+, so win32-ia32 can
+          # only be exercised on the Node majors that still publish win-x86.
+          - platform: win32-ia32-msvc
+            node: 24
+          - platform: win32-ia32-msvc
+            node: 26
     steps:
       - uses: actions/checkout@v4
 
@@ -54,6 +66,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+          architecture: ${{ matrix.nodearch }}
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 

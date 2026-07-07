@@ -29,8 +29,10 @@ constexpr std::string_view kSymContextSlowGetAlignedPointerTagged =
     "_ZN2v87Context37SlowGetAlignedPointerFromEmbedderDataEit";
 
 using GetCurrentIsolateFn = void* (*)();
-using SlowGetAlignedPointerUntaggedFn = void* (*)(void*, int);
-using SlowGetAlignedPointerTaggedFn = void* (*)(void*, int, uint16_t);
+using SlowGetAlignedPointerUntaggedFn =
+    void* (INTERNAL_REQUIRE_MEMBER_ABI*)(void*, int);
+using SlowGetAlignedPointerTaggedFn =
+    void* (INTERNAL_REQUIRE_MEMBER_ABI*)(void*, int, uint16_t);
 
 enum class EmbedderDataFamily {
   kUntagged,

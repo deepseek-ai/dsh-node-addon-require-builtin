@@ -1,0 +1,37 @@
+{
+  "name": "@deepseek-ai/dsh-node-addon-internal-win32-ia32-msvc",
+  "version": "0.0.1",
+  "description": "Prebuilt win32-ia32-msvc native addon package for @deepseek-ai/dsh-node-addon-internal.",
+  "main": "./index.js",
+  "publishConfig": {
+    "access": "public"
+  },
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "ia32"
+  ],
+  "engines": {
+    "node": ">=20 <23"
+  },
+  "files": [
+    "index.js",
+    "README.md",
+    "prebuilds.json",
+    "prebuilt/"
+  ],
+  "dependencies": {
+    "@deepseek-ai/dsh-node-addon-internal-loader": "workspace:*"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-harness/dsh-node-addon-internal.git",
+    "directory": "packages/win32-ia32-msvc"
+  },
+  "bugs": {
+    "url": "https://github.com/deepseek-harness/dsh-node-addon-internal/issues"
+  },
+  "homepage": "https://github.com/deepseek-harness/dsh-node-addon-internal#readme"
+}

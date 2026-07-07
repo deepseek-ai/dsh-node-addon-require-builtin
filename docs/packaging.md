@@ -13,6 +13,7 @@ Rollup: one JS entry package plus platform optional packages.
 @deepseek-ai/dsh-node-addon-internal-linux-arm64-gnu
 @deepseek-ai/dsh-node-addon-internal-linux-x64-gnu
 @deepseek-ai/dsh-node-addon-internal-win32-arm64-msvc
+@deepseek-ai/dsh-node-addon-internal-win32-ia32-msvc
 @deepseek-ai/dsh-node-addon-internal-win32-x64-msvc
 ```
 

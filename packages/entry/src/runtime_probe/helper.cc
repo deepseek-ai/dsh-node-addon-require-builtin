@@ -14,8 +14,10 @@ constexpr uintptr_t kMinPlausiblePointer = 0x10000;
 constexpr std::string_view kSymBuiltinModuleRequireGetter =
     "_ZNK4node14PrincipalRealm22builtin_module_requireEv";
 
-using BuiltinModuleRequireGetterFn = napi_value (*)(void*);
-using BuiltinModuleRequireGetterSretFn = void (*)(void*, void*);
+using BuiltinModuleRequireGetterFn =
+    napi_value (INTERNAL_REQUIRE_MEMBER_ABI*)(void*);
+using BuiltinModuleRequireGetterSretFn =
+    void (INTERNAL_REQUIRE_MEMBER_ABI*)(void*, void*);
 
 }  // namespace
 

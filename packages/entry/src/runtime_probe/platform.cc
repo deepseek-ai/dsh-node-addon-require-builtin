@@ -20,6 +20,8 @@ Result<GetterPattern> ParseBuiltinModuleRequireGetterOffset(void* getter) {
   return ParseWin32Arm64BuiltinModuleRequireGetterOffset(getter);
 #elif defined(_WIN32) && defined(_M_X64)
   return ParseWin32X64BuiltinModuleRequireGetterOffset(getter);
+#elif defined(_WIN32) && defined(_M_IX86)
+  return ParseWin32Ia32BuiltinModuleRequireGetterOffset(getter);
 #else
   return Result<GetterPattern>::Failure(Status::Failure(
       ProbeStatus::kUnsupportedNoGetter,

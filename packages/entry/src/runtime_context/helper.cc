@@ -59,12 +59,14 @@ Result<CurrentContextRead> ReadSretCurrentV8Context(
     void* isolate,
     const CurrentContextSymbols& symbols) {
   // MSVC returns a non-trivial v8::Local<Context> via a hidden struct-return
-  // pointer: `this` is the first integer argument (rcx / x0) and the caller
-  // passes the return-buffer pointer as the second (rdx / x1). Calling such a
+  // pointer: `this` is the first integer argument (rcx / x0 / ecx) and the
+  // return-buffer pointer follows (rdx / x1 / first stack slot). Calling such a
   // getter through the direct `void*(void*)` ABI leaves the sret register
   // uninitialized and the callee writes through garbage, so the sret ABI must
-  // be used explicitly on Windows.
-  using ContextSretFn = void (*)(void* /*this*/, void* /*ret*/);
+  // be used explicitly on Windows. On 32-bit x86 the member convention is
+  // __thiscall, so the callee cleans up the pushed sret pointer.
+  using ContextSretFn = void (INTERNAL_REQUIRE_MEMBER_ABI*)(void* /*this*/,
+                                                            void* /*ret*/);
   void* context = nullptr;
   DebugTrace("calling Isolate::GetCurrentContext(isolate) (%s sret)", platform);
   reinterpret_cast<ContextSretFn>(symbols.get_current_context)(isolate, &context);

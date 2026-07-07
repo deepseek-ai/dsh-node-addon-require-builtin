@@ -26,6 +26,26 @@ struct WindowsSymbolAlias {
   std::string_view msvc;
 };
 
+// MSVC name-mangling differs between the 64-bit targets (x64/arm64, which share
+// the LLP64 encoding) and 32-bit x86. On x86 the `this` pointer has no __ptr64
+// `E` qualifier, member functions use __thiscall (`QAE`/`AAE`) instead of the
+// unified `QEAA`/`AEAA`, and pointer types are near (`PAX`/`PAV`) rather than
+// `PEAX`/`PEAV`. A binary is built for exactly one architecture, so the correct
+// alias column is selected at compile time.
+#if defined(_M_IX86)
+constexpr std::array<WindowsSymbolAlias, 5> kWindowsSymbolAliases = {{
+    {"_ZN2v87Isolate10GetCurrentEv",
+     "?GetCurrent@Isolate@v8@@SAPAV12@XZ"},
+    {"_ZN2v87Isolate17GetCurrentContextEv",
+     "?GetCurrentContext@Isolate@v8@@QAE?AV?$Local@VContext@v8@@@2@XZ"},
+    {"_ZN2v87Context29GetNumberOfEmbedderDataFieldsEv",
+     "?GetNumberOfEmbedderDataFields@Context@v8@@QAEIXZ"},
+    {"_ZN2v87Context37SlowGetAlignedPointerFromEmbedderDataEi",
+     "?SlowGetAlignedPointerFromEmbedderData@Context@v8@@AAEPAXH@Z"},
+    {"_ZN2v87Context37SlowGetAlignedPointerFromEmbedderDataEit",
+     "?SlowGetAlignedPointerFromEmbedderData@Context@v8@@AAEPAXHG@Z"},
+}};
+#else
 constexpr std::array<WindowsSymbolAlias, 5> kWindowsSymbolAliases = {{
     {"_ZN2v87Isolate10GetCurrentEv",
      "?GetCurrent@Isolate@v8@@SAPEAV12@XZ"},
@@ -38,6 +58,7 @@ constexpr std::array<WindowsSymbolAlias, 5> kWindowsSymbolAliases = {{
     {"_ZN2v87Context37SlowGetAlignedPointerFromEmbedderDataEit",
      "?SlowGetAlignedPointerFromEmbedderData@Context@v8@@AEAAPEAXHG@Z"},
 }};
+#endif
 
 struct WindowsAddressInfo {
   HMODULE module = nullptr;

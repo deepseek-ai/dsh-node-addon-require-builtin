@@ -26,7 +26,12 @@ Supported optional prebuild packages:
 | `linux-arm64-gnu` | Supported | Supported | Supported | Supported |
 | `linux-x64-gnu` | Supported | Supported | Supported | Supported |
 | `win32-arm64-msvc` | Supported | Supported | Supported | Supported |
+| `win32-ia32-msvc` | Supported | Supported | No 32-bit runtime | No 32-bit runtime |
 | `win32-x64-msvc` | Supported | Supported | Supported | Supported |
+
+Node.js stopped publishing 32-bit Windows (`win-x86`) binaries after v22, so
+`win32-ia32-msvc` is limited to Node 20 and 22; there is no v24/v26 32-bit
+runtime to build against or test on.
 
 Backend artifacts:
 
@@ -37,6 +42,7 @@ Backend artifacts:
 | `linux-arm64-gnu` | `napi-v9`, `nodeabi-v115`, `nodeabi-v127`, `nodeabi-v137`, `nodeabi-v147` |
 | `linux-x64-gnu` | `napi-v9`, `nodeabi-v115`, `nodeabi-v127`, `nodeabi-v137`, `nodeabi-v147` |
 | `win32-arm64-msvc` | `napi-v9`, `nodeabi-v115`, `nodeabi-v127`, `nodeabi-v137`, `nodeabi-v147` |
+| `win32-ia32-msvc` | `napi-v9`, `nodeabi-v115`, `nodeabi-v127` |
 | `win32-x64-msvc` | `napi-v9`, `nodeabi-v115`, `nodeabi-v127`, `nodeabi-v137`, `nodeabi-v147` |
 
 Not published yet:

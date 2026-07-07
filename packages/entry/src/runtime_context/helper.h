@@ -10,8 +10,9 @@ namespace internal_require {
 // pointer is not a real context. Shared by every platform's context reader.
 constexpr uint32_t kMaxPlausibleEmbedderFields = 4096;
 
-using GetCurrentContextFn = void* (*)(void*);
-using GetNumberOfEmbedderDataFieldsFn = uint32_t (*)(void*);
+using GetCurrentContextFn = void* (INTERNAL_REQUIRE_MEMBER_ABI*)(void*);
+using GetNumberOfEmbedderDataFieldsFn =
+    uint32_t (INTERNAL_REQUIRE_MEMBER_ABI*)(void*);
 
 struct CurrentContextSymbols {
   void* get_current_context = nullptr;
@@ -56,6 +57,9 @@ Result<CurrentContextRead> ReadWin32Arm64CurrentV8Context(
     void* isolate,
     const CurrentContextSymbols& symbols);
 Result<CurrentContextRead> ReadWin32X64CurrentV8Context(
+    void* isolate,
+    const CurrentContextSymbols& symbols);
+Result<CurrentContextRead> ReadWin32Ia32CurrentV8Context(
     void* isolate,
     const CurrentContextSymbols& symbols);
 
