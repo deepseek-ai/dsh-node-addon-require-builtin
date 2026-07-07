@@ -22,7 +22,8 @@ jobs:
           - darwin-x64
           - linux-arm64-gnu
           - linux-x64-gnu
-          - win32-arm64-msvc
+          # TODO: re-enable after win32-arm64 CI/runtime fixes land.
+          # - win32-arm64-msvc
           - win32-x64-msvc
         include:
           - platform: darwin-arm64
@@ -37,9 +38,10 @@ jobs:
           - platform: linux-x64-gnu
             runner: ubuntu-24.04
             optional: true
-          - platform: win32-arm64-msvc
-            runner: windows-11-arm
-            optional: true
+          # TODO: re-enable after win32-arm64 CI/runtime fixes land.
+          # - platform: win32-arm64-msvc
+          #   runner: windows-11-arm
+          #   optional: true
           - platform: win32-x64-msvc
             runner: windows-2025
             optional: true

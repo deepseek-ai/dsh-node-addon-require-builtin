@@ -107,11 +107,13 @@ The supported optional prebuild target set is intentionally conservative:
 | macOS x64 (`darwin-x64`) | Supported | Supported | Supported | Supported |
 | Linux glibc arm64 (`linux-arm64-gnu`) | Supported | Supported | Supported | Supported |
 | Linux glibc x64 (`linux-x64-gnu`) | Supported | Supported | Supported | Supported |
-| Windows arm64 MSVC (`win32-arm64-msvc`) | Supported | Supported | Supported | Supported |
+| Windows arm64 MSVC (`win32-arm64-msvc`) | Pending CI | Pending CI | Pending CI | Pending CI |
 | Windows x64 MSVC (`win32-x64-msvc`) | Supported | Supported | Supported | Supported |
 
 Supported optional packages publish `napi-v9` plus Node-major-specific
 `nodeabi` binaries for Node 20, 22, 24, and 26. Linux musl is not published yet.
+Windows arm64 package metadata is present, but CI is temporarily disabled while
+the `win32-arm64-msvc` runtime path is fixed.
 See [docs/support-matrix.md](docs/support-matrix.md).
 
 ## License
