@@ -39,9 +39,9 @@ const {
   optionalBinaryRelativePath,
   optionalPackageName: resolveOptionalPackageName,
   platformPackageSuffix,
-} = require('@deepseek-ai/dsh-node-addon-internal-loader') as LoaderApi;
+} = require('node-addon-require-builtin-loader') as LoaderApi;
 
-const PACKAGE_PREFIX = '@deepseek-ai/dsh-node-addon-internal';
+const PACKAGE_PREFIX = 'node-addon-require-builtin';
 const packageDir = path.resolve(__dirname, '..');
 const loadedBinding = loadEntry({
   packageDir,

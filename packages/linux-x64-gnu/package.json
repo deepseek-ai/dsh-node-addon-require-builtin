@@ -1,7 +1,7 @@
 {
-  "name": "@deepseek-ai/dsh-node-addon-internal-linux-x64-gnu",
+  "name": "node-addon-require-builtin-linux-x64-gnu",
   "version": "0.0.1",
-  "description": "Prebuilt linux-x64-gnu native addon package for @deepseek-ai/dsh-node-addon-internal.",
+  "description": "Prebuilt linux-x64-gnu native addon package for node-addon-require-builtin.",
   "main": "./index.js",
   "publishConfig": {
     "access": "public"
@@ -22,7 +22,7 @@
     "prebuilt/"
   ],
   "dependencies": {
-    "@deepseek-ai/dsh-node-addon-internal-loader": "workspace:*"
+    "node-addon-require-builtin-loader": "workspace:*"
   },
   "license": "MIT",
   "repository": {

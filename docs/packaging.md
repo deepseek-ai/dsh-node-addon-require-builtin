@@ -6,15 +6,15 @@ Rollup: one JS entry package plus platform optional packages.
 ## Published Packages
 
 ```text
-@deepseek-ai/dsh-node-addon-internal
-@deepseek-ai/dsh-node-addon-internal-loader
-@deepseek-ai/dsh-node-addon-internal-darwin-arm64
-@deepseek-ai/dsh-node-addon-internal-darwin-x64
-@deepseek-ai/dsh-node-addon-internal-linux-arm64-gnu
-@deepseek-ai/dsh-node-addon-internal-linux-x64-gnu
-@deepseek-ai/dsh-node-addon-internal-win32-arm64-msvc
-@deepseek-ai/dsh-node-addon-internal-win32-ia32-msvc
-@deepseek-ai/dsh-node-addon-internal-win32-x64-msvc
+node-addon-require-builtin
+node-addon-require-builtin-loader
+node-addon-require-builtin-darwin-arm64
+node-addon-require-builtin-darwin-x64
+node-addon-require-builtin-linux-arm64-gnu
+node-addon-require-builtin-linux-x64-gnu
+node-addon-require-builtin-win32-arm64-msvc
+node-addon-require-builtin-win32-ia32-msvc
+node-addon-require-builtin-win32-x64-msvc
 ```
 
 Unsupported platforms are intentionally absent from `optionalDependencies`.
@@ -54,7 +54,7 @@ change.
 The main package loader:
 
 1. Computes the platform suffix.
-2. Loads `@deepseek-ai/dsh-node-addon-internal-<platform>` when installed.
+2. Loads `node-addon-require-builtin-<platform>` when installed.
 3. Reads the platform package `prebuilds.json`.
 4. Tries a matching `nodeabi` binary first in `auto` mode.
 5. Falls back to `napi-v9`.

@@ -60,7 +60,7 @@ Napi::Object DiagnosticsObject(Napi::Env env, const Diagnostics& diag) {
 
 void ThrowUnsupported(Napi::Env env, const InternalRequireProbe& probe) {
   const ProbeState& state = probe.state();
-  std::string message = "@deepseek-ai/dsh-node-addon-internal unsupported: ";
+  std::string message = "node-addon-require-builtin unsupported: ";
   message.append(ProbeStatusString(state.status));
   if (!state.error.empty()) {
     message += " (" + state.error + ")";

@@ -1,8 +1,8 @@
 {
-  "name": "@deepseek-ai/dsh-node-addon-internal-loader",
+  "name": "node-addon-require-builtin-loader",
   "version": "0.0.1",
   "type": "commonjs",
-  "description": "Shared loader for @deepseek-ai/dsh-node-addon-internal entry and platform packages.",
+  "description": "Shared loader for node-addon-require-builtin entry and platform packages.",
   "main": "lib/index.js",
   "exports": {
     ".": {

@@ -1,6 +1,6 @@
 # Architecture
 
-`@deepseek-ai/dsh-node-addon-internal` is a Node native addon that obtains the bootstrap
+`node-addon-require-builtin` is a Node native addon that obtains the bootstrap
 `requireBuiltin()` function from the current Node `Realm` and exposes a small JS
 API around it.
 

@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-node-addon-internal-hmr-comparison",
+  "name": "node-addon-require-builtin-hmr-comparison",
   "version": "0.0.1",
   "private": true,
   "type": "module",

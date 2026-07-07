@@ -30,7 +30,7 @@ const expectedLocalBuildPath = expectedBackend === 'nodeabi'
 
 assert.equal(
   info.optionalPackageName,
-  `@deepseek-ai/dsh-node-addon-internal-${platformSuffix}`,
+  `node-addon-require-builtin-${platformSuffix}`,
 );
 assert.equal(typeof platformSuffix, 'string');
 assert.match(info.bindingPath, /\.node$/);

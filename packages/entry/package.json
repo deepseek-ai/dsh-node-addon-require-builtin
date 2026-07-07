@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-node-addon-internal",
+  "name": "node-addon-require-builtin",
   "version": "0.0.1",
   "type": "commonjs",
   "description": "Node-API addon with runtime probing for internal access.",
@@ -46,17 +46,17 @@
   },
   "homepage": "https://github.com/deepseek-harness/dsh-node-addon-internal#readme",
   "dependencies": {
-    "@deepseek-ai/dsh-node-addon-internal-loader": "workspace:*",
+    "node-addon-require-builtin-loader": "workspace:*",
     "node-addon-api": "^8.9.0",
     "node-gyp": "12.4.0"
   },
   "optionalDependencies": {
-    "@deepseek-ai/dsh-node-addon-internal-darwin-arm64": "workspace:*",
-    "@deepseek-ai/dsh-node-addon-internal-darwin-x64": "workspace:*",
-    "@deepseek-ai/dsh-node-addon-internal-linux-arm64-gnu": "workspace:*",
-    "@deepseek-ai/dsh-node-addon-internal-linux-x64-gnu": "workspace:*",
-    "@deepseek-ai/dsh-node-addon-internal-win32-arm64-msvc": "workspace:*",
-    "@deepseek-ai/dsh-node-addon-internal-win32-ia32-msvc": "workspace:*",
-    "@deepseek-ai/dsh-node-addon-internal-win32-x64-msvc": "workspace:*"
+    "node-addon-require-builtin-darwin-arm64": "workspace:*",
+    "node-addon-require-builtin-darwin-x64": "workspace:*",
+    "node-addon-require-builtin-linux-arm64-gnu": "workspace:*",
+    "node-addon-require-builtin-linux-x64-gnu": "workspace:*",
+    "node-addon-require-builtin-win32-arm64-msvc": "workspace:*",
+    "node-addon-require-builtin-win32-ia32-msvc": "workspace:*",
+    "node-addon-require-builtin-win32-x64-msvc": "workspace:*"
   }
 }

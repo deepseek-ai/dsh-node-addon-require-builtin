@@ -1,4 +1,4 @@
-# @deepseek-ai/dsh-node-addon-internal
+# node-addon-require-builtin
 
 Node-API addon that obtains Node's internal `requireBuiltin()`
 without starting Node with `--expose-internals`.
@@ -11,21 +11,21 @@ expected invariants, the addon must fail closed instead of guessing offsets.
 ## Install
 
 ```sh
-npm install @deepseek-ai/dsh-node-addon-internal
+npm install node-addon-require-builtin
 ```
 
 Published packages use a main package plus platform optional packages:
 
 ```text
-@deepseek-ai/dsh-node-addon-internal
-@deepseek-ai/dsh-node-addon-internal-darwin-arm64
-@deepseek-ai/dsh-node-addon-internal-darwin-x64
-@deepseek-ai/dsh-node-addon-internal-linux-arm64-gnu
-@deepseek-ai/dsh-node-addon-internal-linux-x64-gnu
-@deepseek-ai/dsh-node-addon-internal-win32-arm64-msvc
-@deepseek-ai/dsh-node-addon-internal-win32-ia32-msvc
-@deepseek-ai/dsh-node-addon-internal-win32-x64-msvc
-@deepseek-ai/dsh-node-addon-internal-loader
+node-addon-require-builtin
+node-addon-require-builtin-darwin-arm64
+node-addon-require-builtin-darwin-x64
+node-addon-require-builtin-linux-arm64-gnu
+node-addon-require-builtin-linux-x64-gnu
+node-addon-require-builtin-win32-arm64-msvc
+node-addon-require-builtin-win32-ia32-msvc
+node-addon-require-builtin-win32-x64-msvc
+node-addon-require-builtin-loader
 ```
 
 The main package first tries the current platform optional package, then falls
@@ -34,7 +34,7 @@ back to a local `node-gyp` build under `packages/entry/build/`.
 ## Usage
 
 ```js
-const internalAddon = require('@deepseek-ai/dsh-node-addon-internal');
+const internalAddon = require('node-addon-require-builtin');
 
 const esmLoader = internalAddon.requireBuiltin('internal/modules/esm/loader');
 const cascadedLoader = esmLoader.getOrInitializeCascadedLoader();

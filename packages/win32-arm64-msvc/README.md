@@ -1,6 +1,6 @@
-# @deepseek-ai/dsh-node-addon-internal-win32-arm64-msvc
+# node-addon-require-builtin-win32-arm64-msvc
 
 Optional prebuilt native addon package for `win32-arm64-msvc`.
 
-The main `@deepseek-ai/dsh-node-addon-internal` package selects one binary from this
+The main `node-addon-require-builtin` package selects one binary from this
 package at runtime using `prebuilds.json`.

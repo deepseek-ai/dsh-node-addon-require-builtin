@@ -303,7 +303,7 @@ function main() {
     return;
   }
 
-  console.log('@deepseek-ai/dsh-node-addon-internal: optional prebuild unavailable, building from source');
+  console.log('node-addon-require-builtin: optional prebuild unavailable, building from source');
   runNodeGyp();
   copyNodeGypOutput();
   validateLocalBuild();
