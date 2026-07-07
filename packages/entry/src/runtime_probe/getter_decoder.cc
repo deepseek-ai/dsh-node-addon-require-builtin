@@ -230,6 +230,38 @@ bool DecodeLdrX0FromX0(uint32_t insn, size_t* offset) {
   return true;
 }
 
+// Matches `ldr xt, [x0, #imm]` (LDR immediate, unsigned offset, 64-bit) reading
+// from x0 (the `this`/Realm pointer) into any destination register, and returns
+// the destination register plus the byte offset it loads.
+bool DecodeLdrFromX0(uint32_t insn, uint8_t* dest, size_t* offset) {
+  constexpr uint32_t kMask = 0xffc003e0u;     // opcode + Rn(x0), any Rt
+  constexpr uint32_t kPattern = 0xf9400000u;  // ldr xt, [x0, #imm]
+  if ((insn & kMask) != kPattern) return false;
+  *dest = static_cast<uint8_t>(insn & 0x1fu);
+  const uint32_t imm12 = (insn >> 10) & 0xfffu;
+  *offset = static_cast<size_t>(imm12) * sizeof(uint64_t);
+  return true;
+}
+
+// Matches `str xt, [x1]` (STR immediate, unsigned offset, 64-bit) with a zero
+// displacement and base x1 (the MSVC struct-return pointer), and returns the
+// source register.
+bool DecodeStrToSret(uint32_t insn, uint8_t* src) {
+  constexpr uint32_t kMask = 0xffffffe0u;     // opcode + imm(0) + Rn(x1), any Rt
+  constexpr uint32_t kPattern = 0xf9000020u;  // str xt, [x1, #0]
+  if ((insn & kMask) != kPattern) return false;
+  *src = static_cast<uint8_t>(insn & 0x1fu);
+  return true;
+}
+
+// Matches `mov xd, xm` (the ORR Xd, XZR, Xm alias) with no shift, used by the
+// sret epilogue to return the struct-return pointer (`mov x0, x1`).
+bool DecodeMovReg(uint32_t insn) {
+  constexpr uint32_t kMask = 0xffe0ffe0u;     // ORR Xd, XZR, Xm, shift=0
+  constexpr uint32_t kPattern = 0xaa0003e0u;
+  return (insn & kMask) == kPattern;
+}
+
 }  // namespace
 
 Result<GetterPattern> MatchX64SysVFieldGetter(void* getter,
@@ -295,6 +327,87 @@ Result<GetterPattern> MatchArm64FieldGetter(void* getter,
   text += has_bti ? " bti-c-ldr-x0-[this-imm]-ret" : " ldr-x0-[this-imm]-ret";
   pattern.pattern = std::move(text);
   return Result<GetterPattern>::Ok(pattern);
+}
+
+Result<GetterPattern> MatchArm64Win64FieldGetter(void* getter,
+                                                 std::string_view platform_tag) {
+  std::array<uint32_t, kArm64WordWindow> code{};
+  std::memcpy(code.data(), getter, code.size() * sizeof(code[0]));
+
+  // MSVC returns a non-trivial v8::Local<T> via a hidden struct-return pointer:
+  // `this` is x0 and the return buffer is x1. The getter loads the field from
+  // x0 into a scratch register and stores it through x1, rather than returning
+  // it directly in x0 the way the Itanium ABI (darwin/linux) does. The observed
+  // body is `ldr xt,[x0,#imm]; mov x0,x1; str xt,[x1]; ret`, but the register
+  // moves can be interleaved freely, so the instructions are walked one at a
+  // time (mirroring the x64 walker) instead of matched at fixed positions. A
+  // store-through-x1 selects the sret call mode; the bare `ldr x0,[x0,#imm];
+  // ret` direct form is also accepted for parity with the Itanium getter.
+  size_t index = 0;
+  const bool has_bti = code[index] == kArm64BtiC;
+  if (has_bti) index++;
+
+  bool found_load = false;
+  bool stores_to_sret = false;
+  uint8_t load_dest = 0;
+  size_t offset = 0;
+
+  for (; index < code.size(); index++) {
+    const uint32_t insn = code[index];
+
+    if (insn == kArm64Ret) {
+      if (!found_load) {
+        return Failure("win32-arm64 getter returned without loading a field");
+      }
+      if (!IsPlausibleOffset(offset)) {
+        return Failure("win32-arm64 getter offset is implausible");
+      }
+      const bool sret = stores_to_sret;
+      if (!sret && load_dest != 0) {
+        return Failure("win32-arm64 direct getter does not return via x0");
+      }
+      GetterPattern pattern;
+      pattern.offset = offset;
+      pattern.call_mode = sret ? GetterCallMode::kSret
+                               : GetterCallMode::kDirectReturn;
+      std::string text(platform_tag);
+      text += sret ? " ldr-[this-imm]-str-[sret]-ret"
+                   : " ldr-x0-[this-imm]-ret";
+      if (has_bti) text.insert(text.find(' ') + 1, "bti-c-");
+      pattern.pattern = std::move(text);
+      return Result<GetterPattern>::Ok(pattern);
+    }
+
+    uint8_t ldr_dest = 0;
+    size_t ldr_offset = 0;
+    if (DecodeLdrFromX0(insn, &ldr_dest, &ldr_offset)) {
+      if (found_load) {
+        return Failure("win32-arm64 getter loads more than one field");
+      }
+      found_load = true;
+      load_dest = ldr_dest;
+      offset = ldr_offset;
+      continue;
+    }
+
+    uint8_t store_src = 0;
+    if (DecodeStrToSret(insn, &store_src)) {
+      if (!found_load || store_src != load_dest) {
+        return Failure(
+            "win32-arm64 getter stores a value it did not load from this");
+      }
+      stores_to_sret = true;
+      continue;
+    }
+
+    // Register shuffles (e.g. `mov x0, x1` returning the sret pointer) do not
+    // change the parsed offset. Anything else means this is not a field getter.
+    if (DecodeMovReg(insn)) continue;
+
+    return Failure("win32-arm64 getter contains an unrecognized instruction");
+  }
+
+  return Failure("win32-arm64 getter did not terminate with ret");
 }
 
 }  // namespace internal_require

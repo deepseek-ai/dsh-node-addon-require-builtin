@@ -249,28 +249,38 @@ bool ResolveExecutableVtableCandidate(void* candidate,
   return true;
 }
 
-const WindowsVtableGetter* FindGetterAtSlot(
-    const std::vector<WindowsVtableGetter>& getters,
-    size_t slot) {
-  for (const auto& getter : getters) {
-    if (getter.slot == slot) return &getter;
-  }
-  return nullptr;
-}
+// Returns indices into `getters` (which the scanner fills in ascending slot
+// order) of the longest subsequence whose parsed Realm field offsets strictly
+// increase. The per-realm field accessors occupy a block of vtable slots that
+// read an ascending run of Realm offsets, but neither the slot stride nor the
+// offset stride is stable across architectures and Node versions (x86-64 packs
+// them +2 slots / +8 bytes; win32-arm64 node24 uses irregular slots and +0x10
+// bytes with lazily-initialized accessors interleaved). The block is therefore
+// identified structurally by monotonic offsets rather than by arithmetic
+// stride, so gaps and varying strides are tolerated.
+std::vector<size_t> LongestAscendingOffsetChain(
+    const std::vector<WindowsVtableGetter>& getters) {
+  const size_t n = getters.size();
+  if (n == 0) return {};
 
-size_t ConsecutivePerRealmGetterRunLength(
-    const std::vector<WindowsVtableGetter>& getters,
-    const WindowsVtableGetter& start) {
-  size_t length = 0;
-  for (;;) {
-    const size_t expected_slot = start.slot + length * 2;
-    const size_t expected_offset =
-        start.pattern.offset + length * sizeof(void*);
-    const WindowsVtableGetter* getter = FindGetterAtSlot(getters, expected_slot);
-    if (getter == nullptr || getter->pattern.offset != expected_offset) break;
-    length++;
+  std::vector<size_t> best_len(n, 1);
+  std::vector<size_t> prev(n, n);  // n marks "no predecessor"
+  size_t best_end = 0;
+  for (size_t i = 0; i < n; ++i) {
+    for (size_t j = 0; j < i; ++j) {
+      if (getters[j].pattern.offset < getters[i].pattern.offset &&
+          best_len[j] + 1 > best_len[i]) {
+        best_len[i] = best_len[j] + 1;
+        prev[i] = j;
+      }
+    }
+    if (best_len[i] > best_len[best_end]) best_end = i;
   }
-  return length;
+
+  std::vector<size_t> chain;
+  for (size_t i = best_end; i != n; i = prev[i]) chain.push_back(i);
+  std::reverse(chain.begin(), chain.end());
+  return chain;
 }
 
 bool NapiFunctionNameEquals(napi_env env,
@@ -309,57 +319,87 @@ const WindowsVtableGetter* ResolveBuiltinModuleRequireGetterFromParsedVtable(
     napi_env env,
     void* realm,
     const std::vector<WindowsVtableGetter>& getters) {
-  const WindowsVtableGetter* best_start = nullptr;
-  size_t best_length = 0;
-
-  for (const auto& getter : getters) {
-    const size_t length = ConsecutivePerRealmGetterRunLength(getters, getter);
-    if (length > best_length) {
-      best_start = &getter;
-      best_length = length;
-    }
-  }
-
-  if (best_start == nullptr ||
-      best_length < kMinWindowsPerRealmGetterRunLength) {
-    DebugTrace(
-        "win32 vtable per-realm getter run too short: best_length=%zu "
-        "min_length=%zu",
-        best_length,
-        kMinWindowsPerRealmGetterRunLength);
+  if (getters.empty()) {
+    DebugTrace("win32 vtable produced no decoded field getters");
     return nullptr;
   }
 
+  // The longest strictly-ascending field-offset chain identifies the per-realm
+  // accessor block: those getters read Realm fields at ascending offsets. It is
+  // used only to bound the offset window that is inspected below, never to
+  // require exact membership, because the block has no stable slot/offset
+  // stride across architectures and Node versions (x86-64 packs +2 slots /
+  // +8 bytes; win32-arm64 uses irregular slots, +0x10 bytes, and interleaves
+  // rejected framed accessors that leave holes). Bounding by the chain span
+  // keeps the identity probe inside the handle-returning block — so it never
+  // reads a Realm word that is not a v8 handle — while still tolerating gaps
+  // and interleaved getters within the block.
+  const std::vector<size_t> chain = LongestAscendingOffsetChain(getters);
+  if (chain.size() < 2) {
+    DebugTrace("win32 vtable ascending getter chain too short: length=%zu",
+                chain.size());
+    return nullptr;
+  }
+  const size_t window_lo = getters[chain.front()].pattern.offset;
+  const size_t window_hi = getters[chain.back()].pattern.offset;
   DebugTrace(
-      "win32 vtable per-realm getter run: start_slot=%zu start_offset=%s "
-      "length=%zu",
-      best_start->slot,
-      Hex(best_start->pattern.offset).c_str(),
-      best_length);
+      "win32 vtable ascending getter chain: length=%zu offset-window=[%s,%s] "
+      "(informational floor=%zu)",
+      chain.size(),
+      Hex(window_lo).c_str(),
+      Hex(window_hi).c_str(),
+      kMinWindowsPerRealmGetterRunLength);
 
-  for (size_t index = 0; index < best_length; ++index) {
-    const size_t slot = best_start->slot + index * 2;
-    const WindowsVtableGetter* getter = FindGetterAtSlot(getters, slot);
-    if (getter == nullptr) continue;
+  // Selection is by precise identity, not by layout: the requireBuiltin field
+  // is the Realm slot whose stored handle is a napi function named
+  // "requireBuiltin". Scan every decoded getter whose field offset falls inside
+  // the block window, in ascending offset order (deterministic and independent
+  // of vtable slot ordering), and take the first identity match. The choice is
+  // cross-checked afterwards against the getter's own return value and against
+  // the getter/realm sharing one loaded image, so a false positive still fails
+  // closed.
+  std::vector<size_t> order(getters.size());
+  for (size_t i = 0; i < order.size(); ++i) order[i] = i;
+  std::sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+    if (getters[a].pattern.offset != getters[b].pattern.offset) {
+      return getters[a].pattern.offset < getters[b].pattern.offset;
+    }
+    return getters[a].slot < getters[b].slot;
+  });
+
+  size_t last_offset = 0;
+  bool have_last = false;
+  for (size_t index = 0; index < order.size(); ++index) {
+    const WindowsVtableGetter& getter = getters[order[index]];
+    if (getter.pattern.offset < window_lo ||
+        getter.pattern.offset > window_hi) {
+      continue;
+    }
+
+    // Distinct getters can decode to the same Realm offset; inspect each field
+    // once so the identity check is not repeated on the same word.
+    if (have_last && getter.pattern.offset == last_offset) continue;
+    last_offset = getter.pattern.offset;
+    have_last = true;
 
     napi_value candidate = nullptr;
     const void* field =
-        static_cast<const uint8_t*>(realm) + getter->pattern.offset;
+        static_cast<const uint8_t*>(realm) + getter.pattern.offset;
     if (!IsWindowsReadableRange(field, sizeof(candidate))) {
       DebugTrace(
           "win32 vtable field candidate is not readable: index=%zu slot=%zu "
           "offset=%s",
           index,
-          slot,
-          Hex(getter->pattern.offset).c_str());
+          getter.slot,
+          Hex(getter.pattern.offset).c_str());
       continue;
     }
     std::memcpy(&candidate, field, sizeof(candidate));
     DebugTrace(
         "win32 vtable field candidate index=%zu slot=%zu offset=%s value=%s",
         index,
-        slot,
-        Hex(getter->pattern.offset).c_str(),
+        getter.slot,
+        Hex(getter.pattern.offset).c_str(),
         Hex(reinterpret_cast<uintptr_t>(candidate)).c_str());
     if (candidate == nullptr) continue;
 
@@ -373,13 +413,13 @@ const WindowsVtableGetter* ResolveBuiltinModuleRequireGetterFromParsedVtable(
           "win32 vtable selected requireBuiltin getter: index=%zu slot=%zu "
           "offset=%s",
           index,
-          slot,
-          Hex(getter->pattern.offset).c_str());
-      return getter;
+          getter.slot,
+          Hex(getter.pattern.offset).c_str());
+      return &getter;
     }
   }
 
-  DebugTrace("win32 vtable per-realm getter run did not contain requireBuiltin");
+  DebugTrace("win32 vtable decoded getters did not contain requireBuiltin");
   return nullptr;
 }
 

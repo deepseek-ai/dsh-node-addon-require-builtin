@@ -13,6 +13,7 @@
 using internal_require::GetterCallMode;
 using internal_require::GetterPattern;
 using internal_require::MatchArm64FieldGetter;
+using internal_require::MatchArm64Win64FieldGetter;
 using internal_require::MatchX64SysVFieldGetter;
 using internal_require::MatchX64Win64FieldGetter;
 using internal_require::Result;
@@ -202,6 +203,54 @@ int main() {
                    .data(),
                "test"),
            0x40, GetterCallMode::kDirectReturn);
+
+  // --- win32-arm64 (MSVC): sret via x1, or direct via x0 -----------------
+  // Direct form is identical to the Itanium getter: ldr x0,[x0,#0x40]; ret
+  ExpectOk("win32-arm64 direct ldr-x0-[x0]-ret",
+           MatchArm64Win64FieldGetter(
+               Arm64Words({0xf9400000u | (0x08u << 10), 0xd65f03c0u}).data(),
+               "test"),
+           0x40, GetterCallMode::kDirectReturn);
+
+  // Sret form: ldr x8,[x0,#0x1b8]; str x8,[x1]; mov x0,x1; ret
+  //   ldr x8,[x0,#0x1b8] => imm12=0x37, Rt=8 -> f9 40 dc 08
+  //   str x8,[x1]        => Rn=x1, Rt=8      -> f9 00 00 28
+  //   mov x0,x1                              -> aa 01 03 e0
+  ExpectOk("win32-arm64 sret ldr-str-mov-ret",
+           MatchArm64Win64FieldGetter(
+               Arm64Words({0xf9400000u | (0x37u << 10) | 0x08u,
+                           0xf9000020u | 0x08u, 0xaa0103e0u, 0xd65f03c0u})
+                   .data(),
+               "test"),
+           0x1b8, GetterCallMode::kSret);
+
+  // Sret form as emitted by MSVC on the CI runner, with the return-pointer move
+  // ahead of the store: ldr x8,[x0,#0x168]; mov x0,x1; str x8,[x1]; ret
+  //   ldr x8,[x0,#0x168] => imm12=0x2d, Rt=8 -> f9 40 b4 08
+  ExpectOk("win32-arm64 sret ldr-mov-str-ret",
+           MatchArm64Win64FieldGetter(
+               Arm64Words({0xf9400000u | (0x2du << 10) | 0x08u, 0xaa0103e0u,
+                           0xf9000020u | 0x08u, 0xd65f03c0u})
+                   .data(),
+               "test"),
+           0x168, GetterCallMode::kSret);
+
+  // Sret form without the trailing mov: ldr x8,[x0,#0x40]; str x8,[x1]; ret
+  ExpectOk("win32-arm64 sret ldr-str-ret",
+           MatchArm64Win64FieldGetter(
+               Arm64Words({0xf9400000u | (0x08u << 10) | 0x08u,
+                           0xf9000020u | 0x08u, 0xd65f03c0u})
+                   .data(),
+               "test"),
+           0x40, GetterCallMode::kSret);
+
+  // Sret store from a different register than the load: rejected.
+  ExpectReject("win32-arm64 sret store-src-mismatch",
+               MatchArm64Win64FieldGetter(
+                   Arm64Words({0xf9400000u | (0x08u << 10) | 0x08u,
+                               0xf9000020u | 0x09u, 0xd65f03c0u})
+                       .data(),
+                   "test"));
 
   // --- rejections --------------------------------------------------------
   // Reads the wrong base register (rsi=6 instead of rdi): 48 8b 46 08 c3

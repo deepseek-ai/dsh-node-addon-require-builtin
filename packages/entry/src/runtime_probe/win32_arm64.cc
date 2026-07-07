@@ -6,7 +6,7 @@ namespace internal_require {
 
 Result<GetterPattern> ParseWin32Arm64BuiltinModuleRequireGetterOffset(
     void* getter) {
-  return MatchArm64FieldGetter(getter, "win32-arm64");
+  return MatchArm64Win64FieldGetter(getter, "win32-arm64");
 }
 
 }  // namespace internal_require

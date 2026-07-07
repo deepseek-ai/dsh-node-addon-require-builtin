@@ -25,7 +25,7 @@ Supported optional prebuild packages:
 | `darwin-x64` | Supported | Supported | Supported | Supported |
 | `linux-arm64-gnu` | Supported | Supported | Supported | Supported |
 | `linux-x64-gnu` | Supported | Supported | Supported | Supported |
-| `win32-arm64-msvc` | Pending CI | Pending CI | Pending CI | Pending CI |
+| `win32-arm64-msvc` | Supported | Supported | Supported | Supported |
 | `win32-x64-msvc` | Supported | Supported | Supported | Supported |
 
 Backend artifacts:
@@ -45,10 +45,6 @@ Not published yet:
 |---|---|
 | `linux-arm64-musl` | musl getter parser not implemented |
 | `linux-x64-musl` | musl getter parser not implemented |
-
-`win32-arm64-msvc` package metadata is present, but CI is temporarily disabled
-while its runtime path is fixed. Do not treat it as a supported published target
-until that CI lane is re-enabled and passing.
 
 Supported platform packages are exercised in CI with N-API and nodeabi optional
 prebuild builds, optional package loading, local source-build fallback, and

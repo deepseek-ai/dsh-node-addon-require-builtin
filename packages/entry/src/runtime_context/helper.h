@@ -35,6 +35,10 @@ Result<CurrentContextRead> ReadDirectCurrentV8Context(
     const char* platform,
     void* isolate,
     const CurrentContextSymbols& symbols);
+Result<CurrentContextRead> ReadSretCurrentV8Context(
+    const char* platform,
+    void* isolate,
+    const CurrentContextSymbols& symbols);
 
 Result<CurrentContextRead> ReadDarwinArm64CurrentV8Context(
     void* isolate,
