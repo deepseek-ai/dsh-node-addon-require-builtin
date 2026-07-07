@@ -9,6 +9,7 @@
       "target_name": "internal_require",
       "sources": [
         "src/node_api_addon.cc",
+        "src/debug_trace.cc",
         "src/native_types.cc",
         "src/runtime_context/helper.cc",
         "src/runtime_context/platform.cc",
@@ -20,6 +21,7 @@
         "src/runtime_context/win32_x64.cc",
         "src/runtime_probe/helper.cc",
         "src/runtime_probe/platform.cc",
+        "src/runtime_probe/getter_decoder.cc",
         "src/runtime_probe/posix.cc",
         "src/runtime_probe/win32_common.cc",
         "src/runtime_probe/darwin_arm64.cc",

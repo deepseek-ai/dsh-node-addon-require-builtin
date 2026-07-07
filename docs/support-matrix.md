@@ -32,8 +32,12 @@ Not published yet:
 |---|---|
 | `linux-arm64-musl` | musl getter parser not implemented |
 | `linux-x64-musl` | musl getter parser not implemented |
+| `win32-x64-msvc` | CI-validated from source; optional prebuild package not published yet |
 | `win32-arm64-msvc` | Windows runtime path not CI-validated yet |
-| `win32-x64-msvc` | Windows runtime path not CI-validated yet |
+
+`win32-x64-msvc` builds from source and is exercised in CI on every push
+(build, `pnpm test`, and require-parity against the genuine internals), but no
+prebuilt optional package is published for it yet.
 
 Unsupported runtimes should fail closed with diagnostics rather than loading an
 unchecked internal module.

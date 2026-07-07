@@ -25,6 +25,7 @@ const buildOptions: BuildTagOptions = backend === BACKEND_NAPI
 const outputMode = process.env.DSH_NODE_ADDON_INTERNAL_BUILD_OUTPUT || 'build';
 const commonSources = [
   path.join(packageRoot, 'src', 'node_api_addon.cc'),
+  path.join(packageRoot, 'src', 'debug_trace.cc'),
   path.join(packageRoot, 'src', 'native_types.cc'),
   path.join(packageRoot, 'src', 'internal_require_probe.cc'),
   path.join(packageRoot, 'src', 'runtime_context', 'helper.cc'),
@@ -37,6 +38,7 @@ const commonSources = [
   path.join(packageRoot, 'src', 'runtime_context', 'win32_x64.cc'),
   path.join(packageRoot, 'src', 'runtime_probe', 'helper.cc'),
   path.join(packageRoot, 'src', 'runtime_probe', 'platform.cc'),
+  path.join(packageRoot, 'src', 'runtime_probe', 'getter_decoder.cc'),
   path.join(packageRoot, 'src', 'runtime_probe', 'posix.cc'),
   path.join(packageRoot, 'src', 'runtime_probe', 'win32_common.cc'),
   path.join(packageRoot, 'src', 'runtime_probe', 'darwin_arm64.cc'),
@@ -215,7 +217,62 @@ function assertNodeHeaders(includeDir: string): void {
   }
 }
 
+// Windows has no drop-in clang `-bundle`/`-shared` invocation, so the addon is
+// built with node-gyp + MSVC there (the same toolchain the published install
+// script uses). node-gyp reads binding.gyp, which pins the N-API backend, so
+// only the napi backend is buildable this way.
+function buildWithNodeGyp(): void {
+  if (backend !== BACKEND_NAPI) {
+    throw new Error(
+      `windows build only supports the napi backend, got: ${backend}`,
+    );
+  }
+
+  const nodeGyp = require.resolve('node-gyp/bin/node-gyp.js', {
+    paths: [packageRoot, root],
+  });
+  const gypArgs = [
+    nodeGyp,
+    'rebuild',
+    '--enable-lto=false',
+    '--enable-thin-lto=false',
+    '--lto-jobs=',
+  ];
+  console.log(`Building ${path.relative(root, output)} (${backend}) with node-gyp`);
+  const result = spawnSync(process.execPath, gypArgs, {
+    cwd: packageRoot,
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      DSH_NODE_ADDON_INTERNAL_BACKEND: BACKEND_NAPI,
+      GYP_DEFINES: [
+        process.env.GYP_DEFINES,
+        'enable_lto=false',
+        'enable_thin_lto=false',
+        'lto_jobs=',
+      ].filter(Boolean).join(' '),
+    },
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+
+  const gypOutput = path.join(packageRoot, 'build', 'Release', BINARY_NAME);
+  if (!fs.existsSync(gypOutput)) {
+    throw new Error(`node-gyp output not found: ${gypOutput}`);
+  }
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.copyFileSync(gypOutput, output);
+  console.log(`Copied ${path.relative(root, gypOutput)} -> ${path.relative(root, output)}`);
+}
+
 function main(): void {
+  if (process.platform === 'win32') {
+    buildWithNodeGyp();
+    return;
+  }
+
   const includeDir = nodeIncludeDir();
   assertNodeHeaders(includeDir);
 

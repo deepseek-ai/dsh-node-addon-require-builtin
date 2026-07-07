@@ -1,6 +1,7 @@
 #include "runtime_compat.h"
 
 #include "backend_config.h"
+#include "runtime_context/helper.h"
 #include "runtime_probe/helper.h"
 
 #if INTERNAL_REQUIRE_BACKEND == INTERNAL_REQUIRE_BACKEND_NODEABI || \
@@ -72,10 +73,10 @@ Result<RuntimeContext> ReadCurrentContext() {
   }
 
   context.embedder_fields = v8_context->GetNumberOfEmbedderDataFields();
-  if (context.embedder_fields <= static_cast<uint32_t>(kRealmSlot)) {
+  if (!IsEmbedderFieldCountPlausible(context.embedder_fields)) {
     return Result<RuntimeContext>::Failure(Status::Failure(
         ProbeStatus::kUnsupportedNoRealm,
-        "current context has too few embedder data fields"));
+        "current context embedder field count is implausible"));
   }
 
   context.embedder_data = EmbedderDataMode();

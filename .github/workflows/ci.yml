@@ -22,15 +22,26 @@ jobs:
           - darwin-x64
           - linux-arm64-gnu
           - linux-x64-gnu
+          - win32-x64-msvc
         include:
           - platform: darwin-arm64
             runner: macos-15
+            optional: true
           - platform: darwin-x64
             runner: macos-15-intel
+            optional: true
           - platform: linux-arm64-gnu
             runner: ubuntu-24.04-arm
+            optional: true
           - platform: linux-x64-gnu
             runner: ubuntu-24.04
+            optional: true
+          # win32 has no published optional prebuild package yet, so it builds
+          # from source and skips the optional-package step. Every other step is
+          # identical to the POSIX platforms.
+          - platform: win32-x64-msvc
+            runner: windows-2025
+            optional: false
     steps:
       - uses: actions/checkout@v4
 
@@ -45,8 +56,28 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
+      # pnpm's default script shell on Windows runners cannot run the POSIX-style
+      # inline env assignments in package.json scripts; Git Bash can.
+      - name: Use bash for pnpm scripts (Windows)
+        if: runner.os == 'Windows'
+        run: pnpm config set script-shell "C:\Program Files\Git\bin\bash.exe"
+
       - name: Install
+        if: runner.os != 'Windows'
         run: pnpm install --frozen-lockfile
+
+      - name: Install dependencies without package install scripts
+        if: runner.os == 'Windows'
+        run: pnpm install --ignore-scripts --frozen-lockfile
+
+      - name: Build TypeScript entrypoints
+        run: pnpm build:ts
+
+      - name: Probe Windows install/runtime path
+        if: runner.os == 'Windows'
+        run: pnpm --dir packages/entry exec node ./scripts/install.js
+        env:
+          DSH_NODE_ADDON_INTERNAL_TRACE: 1
 
       - name: Typecheck
         run: pnpm typecheck
@@ -54,55 +85,19 @@ jobs:
       - name: Test install script helpers
         run: node ./test/install-script.test.js
 
+      - name: Test getter decoder
+        # The decoder walks a byte buffer and is host-architecture independent,
+        # so the POSIX runners cover every platform's getter shape. Skipped on
+        # Windows, where the standalone `c++` used to build it is not on PATH.
+        if: runner.os != 'Windows'
+        run: pnpm test:decoder
+
       - name: Test local N-API build
         run: pnpm test
 
+      - name: Test require parity with genuine internals
+        run: pnpm test:parity
+
       - name: Test current-platform optional package
+        if: matrix.optional
         run: pnpm test:optional
-
-  windows-preview:
-    name: win32-x64-msvc / node ${{ matrix.node }} (non-blocking)
-    runs-on: windows-2025
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [22, 24, 26]
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9.15.9
-          run_install: false
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node }}
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
-      - name: Use bash for pnpm scripts
-        run: pnpm config set script-shell "C:\Program Files\Git\bin\bash.exe"
-
-      - name: Install dependencies without package install scripts
-        run: pnpm install --ignore-scripts --frozen-lockfile
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Build TypeScript entrypoints
-        run: pnpm build:ts
-
-      - name: Probe Windows install/runtime path
-        run: pnpm --dir packages/entry exec node ./scripts/install.js
-        env:
-          DSH_NODE_ADDON_INTERNAL_TRACE: 1
-
-      - name: Test local N-API build
-        run: node ./test/backend.test.js
-        env:
-          DSH_NODE_ADDON_INTERNAL_BACKEND: napi
-          DSH_NODE_ADDON_INTERNAL_EXPECTED_BACKEND: napi
-          DSH_NODE_ADDON_INTERNAL_DISABLE_OPTIONAL_PACKAGE: 1
-          DSH_NODE_ADDON_INTERNAL_TRACE: 1
