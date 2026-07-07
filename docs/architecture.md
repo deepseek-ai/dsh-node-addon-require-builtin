@@ -111,11 +111,17 @@ the backend and performs the private checks:
 - Resolve `node::PrincipalRealm::builtin_module_require() const` dynamically.
 - On Windows, fall back to scanning the live `PrincipalRealm` vtable for the
   matching getter when the private getter is not exported from the PE image.
+  The getter block is identified structurally (longest strictly-ascending field
+  offset chain plus exact `requireBuiltin` N-API identity) rather than by a fixed
+  slot/offset stride, which is not stable across Windows architectures.
 - Verify the getter and `Realm` vtable are from the same loaded image on
   platforms where image metadata is available.
 - Parse a short getter machine-code pattern to get the runtime field offset.
 - Read the field at `Realm + offset`.
-- Call the getter directly and require it to match the field read.
+- Call the getter with the platform's C++ member calling convention and require
+  it to match the field read. MSVC returns a non-trivial `v8::Local<T>` through a
+  hidden struct-return pointer (x64 `rdx`, arm64 `x1`, x86 a `__thiscall` stack
+  slot), so the call mode is selected from the decoded getter shape.
 - Validate the resulting handle is a function via public N-API.
 
 If any check fails, the result is unsupported.
@@ -130,6 +136,7 @@ Implemented parser families:
 - Linux glibc x64
 - Windows arm64
 - Windows x64
+- Windows x86 (`ia32`, Node 20/22 only — Node ships no 32-bit Windows runtime after v22)
 
 Linux musl is intentionally not published until its full runtime probing path is
 implemented and CI-validated.
