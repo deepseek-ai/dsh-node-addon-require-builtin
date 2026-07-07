@@ -15,16 +15,29 @@ The implemented target families are:
 
 The N-API backend targets `napi-v9` across these majors.
 
-## Platforms
+## Platform x Node Matrix
 
-Published prebuild packages:
+Supported optional prebuild packages:
 
-| Platform suffix | Status |
+| Platform suffix | Node 20 | Node 22 | Node 24 | Node 26 |
+|---|---|---|---|---|
+| `darwin-arm64` | Supported | Supported | Supported | Supported |
+| `darwin-x64` | Supported | Supported | Supported | Supported |
+| `linux-arm64-gnu` | Supported | Supported | Supported | Supported |
+| `linux-x64-gnu` | Supported | Supported | Supported | Supported |
+| `win32-arm64-msvc` | Supported | Supported | Supported | Supported |
+| `win32-x64-msvc` | Supported | Supported | Supported | Supported |
+
+Backend artifacts:
+
+| Platform suffix | Optional package backend artifacts |
 |---|---|
-| `darwin-arm64` | Implemented |
-| `darwin-x64` | Implemented |
-| `linux-arm64-gnu` | Implemented |
-| `linux-x64-gnu` | Implemented |
+| `darwin-arm64` | `napi-v9`, `nodeabi-v115`, `nodeabi-v127`, `nodeabi-v137`, `nodeabi-v147` |
+| `darwin-x64` | `napi-v9`, `nodeabi-v115`, `nodeabi-v127`, `nodeabi-v137`, `nodeabi-v147` |
+| `linux-arm64-gnu` | `napi-v9`, `nodeabi-v115`, `nodeabi-v127`, `nodeabi-v137`, `nodeabi-v147` |
+| `linux-x64-gnu` | `napi-v9`, `nodeabi-v115`, `nodeabi-v127`, `nodeabi-v137`, `nodeabi-v147` |
+| `win32-arm64-msvc` | `napi-v9`, `nodeabi-v115`, `nodeabi-v127`, `nodeabi-v137`, `nodeabi-v147` |
+| `win32-x64-msvc` | `napi-v9`, `nodeabi-v115`, `nodeabi-v127`, `nodeabi-v137`, `nodeabi-v147` |
 
 Not published yet:
 
@@ -32,12 +45,10 @@ Not published yet:
 |---|---|
 | `linux-arm64-musl` | musl getter parser not implemented |
 | `linux-x64-musl` | musl getter parser not implemented |
-| `win32-x64-msvc` | CI-validated from source; optional prebuild package not published yet |
-| `win32-arm64-msvc` | Windows runtime path not CI-validated yet |
 
-`win32-x64-msvc` builds from source and is exercised in CI on every push
-(build, `pnpm test`, and require-parity against the genuine internals), but no
-prebuilt optional package is published for it yet.
+Supported platform packages are exercised in CI with N-API and nodeabi optional
+prebuild builds, optional package loading, local source-build fallback, and
+require-parity against the genuine internals.
 
 Unsupported runtimes should fail closed with diagnostics rather than loading an
 unchecked internal module.

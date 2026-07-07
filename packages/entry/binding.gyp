@@ -2,7 +2,8 @@
   "variables": {
     "enable_lto": "false",
     "enable_thin_lto": "false",
-    "lto_jobs": ""
+    "lto_jobs": "",
+    "internal_require_backend%": "napi"
   },
   "targets": [
     {
@@ -30,7 +31,6 @@
         "src/runtime_probe/linux_glibc_x64.cc",
         "src/runtime_probe/win32_arm64.cc",
         "src/runtime_probe/win32_x64.cc",
-        "src/runtime_compat_napi.cc",
         "src/internal_require_probe.cc"
       ],
       "include_dirs": [
@@ -41,11 +41,9 @@
       ],
       "defines": [
         "NAPI_VERSION=9",
-        "INTERNAL_REQUIRE_BACKEND=1",
         "NODE_ADDON_API_DISABLE_CPP_EXCEPTIONS"
       ],
       "cflags_cc": [
-        "-std=c++17",
         "-Wall",
         "-Wextra",
         "-Wno-unused-parameter",
@@ -54,7 +52,6 @@
         "-fvisibility=hidden"
       ],
       "xcode_settings": {
-        "CLANG_CXX_LANGUAGE_STANDARD": "c++17",
         "GCC_ENABLE_CPP_EXCEPTIONS": "NO",
         "GCC_SYMBOLS_PRIVATE_EXTERN": "YES",
         "WARNING_CFLAGS": [
@@ -63,7 +60,59 @@
           "-Wno-unused-parameter",
           "-Wno-cast-function-type-mismatch"
         ]
-      }
+      },
+      "conditions": [
+        [
+          "internal_require_backend=='nodeabi'",
+          {
+            "sources": [
+              "src/runtime_compat_nodeabi.cc"
+            ],
+            "include_dirs": [
+              "<!@(node -e \"const path=require('node:path'); for (const dir of (process.env.NODE_JS_PUBLIC_INCLUDE_DIRS || '').split(path.delimiter).filter(Boolean)) console.log(dir)\")"
+            ],
+            "defines": [
+              "INTERNAL_REQUIRE_BACKEND=2",
+              "HAVE_SQLITE=0",
+              "HAVE_AMARO=0"
+            ],
+            "cflags_cc": [
+              "-std=c++20"
+            ],
+            "xcode_settings": {
+              "CLANG_CXX_LANGUAGE_STANDARD": "c++20"
+            },
+            "msvs_settings": {
+              "VCCLCompilerTool": {
+                "AdditionalOptions": [
+                  "/std:c++20"
+                ]
+              }
+            }
+          },
+          {
+            "sources": [
+              "src/runtime_compat_napi.cc"
+            ],
+            "defines": [
+              "INTERNAL_REQUIRE_BACKEND=1"
+            ],
+            "cflags_cc": [
+              "-std=c++17"
+            ],
+            "xcode_settings": {
+              "CLANG_CXX_LANGUAGE_STANDARD": "c++17"
+            },
+            "msvs_settings": {
+              "VCCLCompilerTool": {
+                "AdditionalOptions": [
+                  "/std:c++17"
+                ]
+              }
+            }
+          }
+        ]
+      ]
     }
   ]
 }

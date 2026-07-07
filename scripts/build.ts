@@ -219,13 +219,10 @@ function assertNodeHeaders(includeDir: string): void {
 
 // Windows has no drop-in clang `-bundle`/`-shared` invocation, so the addon is
 // built with node-gyp + MSVC there (the same toolchain the published install
-// script uses). node-gyp reads binding.gyp, which pins the N-API backend, so
-// only the napi backend is buildable this way.
+// script uses). binding.gyp selects the backend through GYP_DEFINES.
 function buildWithNodeGyp(): void {
-  if (backend !== BACKEND_NAPI) {
-    throw new Error(
-      `windows build only supports the napi backend, got: ${backend}`,
-    );
+  if (backend === BACKEND_NODEABI) {
+    assertNodeHeaders(nodeIncludeDir());
   }
 
   const nodeGyp = require.resolve('node-gyp/bin/node-gyp.js', {
@@ -244,9 +241,10 @@ function buildWithNodeGyp(): void {
     stdio: 'inherit',
     env: {
       ...process.env,
-      DSH_NODE_ADDON_INTERNAL_BACKEND: BACKEND_NAPI,
+      DSH_NODE_ADDON_INTERNAL_BACKEND: backend,
       GYP_DEFINES: [
         process.env.GYP_DEFINES,
+        `internal_require_backend=${backend}`,
         'enable_lto=false',
         'enable_thin_lto=false',
         'lto_jobs=',

@@ -22,6 +22,7 @@ jobs:
           - darwin-x64
           - linux-arm64-gnu
           - linux-x64-gnu
+          - win32-arm64-msvc
           - win32-x64-msvc
         include:
           - platform: darwin-arm64
@@ -36,12 +37,12 @@ jobs:
           - platform: linux-x64-gnu
             runner: ubuntu-24.04
             optional: true
-          # win32 has no published optional prebuild package yet, so it builds
-          # from source and skips the optional-package step. Every other step is
-          # identical to the POSIX platforms.
+          - platform: win32-arm64-msvc
+            runner: windows-11-arm
+            optional: true
           - platform: win32-x64-msvc
             runner: windows-2025
-            optional: false
+            optional: true
     steps:
       - uses: actions/checkout@v4
 
@@ -101,3 +102,14 @@ jobs:
       - name: Test current-platform optional package
         if: matrix.optional
         run: pnpm test:optional
+
+      - name: Prepare Node.js public headers
+        if: matrix.optional
+        shell: bash
+        run: |
+          eval "$(pnpm -s headers)"
+          echo "NODE_JS_PUBLIC_INCLUDE_DIRS=$NODE_JS_PUBLIC_INCLUDE_DIRS" >> "$GITHUB_ENV"
+
+      - name: Test current-platform optional package (nodeabi)
+        if: matrix.optional
+        run: pnpm test:optional:nodeabi

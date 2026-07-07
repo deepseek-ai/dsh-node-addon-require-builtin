@@ -54,6 +54,12 @@ importers:
       '@deepseek-ai/dsh-node-addon-internal-linux-x64-gnu':
         specifier: workspace:*
         version: link:../linux-x64-gnu
+      '@deepseek-ai/dsh-node-addon-internal-win32-arm64-msvc':
+        specifier: workspace:*
+        version: link:../win32-arm64-msvc
+      '@deepseek-ai/dsh-node-addon-internal-win32-x64-msvc':
+        specifier: workspace:*
+        version: link:../win32-x64-msvc
 
   packages/linux-arm64-gnu:
     dependencies:
@@ -68,6 +74,18 @@ importers:
         version: link:../loader
 
   packages/loader: {}
+
+  packages/win32-arm64-msvc:
+    dependencies:
+      '@deepseek-ai/dsh-node-addon-internal-loader':
+        specifier: workspace:*
+        version: link:../loader
+
+  packages/win32-x64-msvc:
+    dependencies:
+      '@deepseek-ai/dsh-node-addon-internal-loader':
+        specifier: workspace:*
+        version: link:../loader
 
 packages:
 
