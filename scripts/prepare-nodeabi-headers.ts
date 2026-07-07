@@ -1,6 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import {
+  joinPathList,
+  pathForCliArg,
+  writeSimpleGithubEnv,
+} from './path-utils.js';
 
 const root = path.resolve(__dirname, '..');
 const cacheRoot = process.env.DSH_NODE_ADDON_INTERNAL_HEADERS_CACHE ||
@@ -39,6 +44,15 @@ function run(command: string, args: string[]): void {
   }
 }
 
+function capture(command: string, args: string[]): string {
+  const result = spawnSync(command, args, {
+    cwd: root,
+    encoding: 'utf8',
+  });
+  if (result.error || result.status !== 0) return '';
+  return `${result.stdout || ''}${result.stderr || ''}`;
+}
+
 function headersUrl(version: string): string {
   return `${baseUrl.replace(/\/$/, '')}/v${version}/node-v${version}-headers.tar.gz`;
 }
@@ -51,9 +65,19 @@ function includeDirs(dir: string): string[] {
   return [path.join(dir, 'include', 'node')];
 }
 
+function hasGnuTar(): boolean {
+  return capture('tar', ['--version']).includes('GNU tar');
+}
+
 function tarExtractArgs(tarball: string, destination: string): string[] {
-  const args = ['-xzf', tarball, '-C', destination, '--strip-components=1'];
-  if (process.platform === 'win32') {
+  const args = [
+    '-xzf',
+    pathForCliArg(tarball),
+    '-C',
+    pathForCliArg(destination),
+    '--strip-components=1',
+  ];
+  if (process.platform === 'win32' && hasGnuTar()) {
     // GNU tar treats drive-letter paths like D:\... as remote archives unless
     // forced local. GitHub Windows runners hit this path via Git Bash tar.
     return ['--force-local', ...args];
@@ -91,12 +115,38 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
+function githubEnvPath(): string | undefined {
+  const index = process.argv.findIndex((arg) => arg === '--github-env');
+  if (index < 0) return undefined;
+
+  const explicitPath = process.argv[index + 1];
+  if (explicitPath && !explicitPath.startsWith('-')) {
+    return explicitPath;
+  }
+
+  if (!process.env.GITHUB_ENV) {
+    throw new Error('--github-env requires GITHUB_ENV or an explicit file path');
+  }
+  return process.env.GITHUB_ENV;
+}
+
+function printShellEnv(value: string): void {
+  console.log(`NODE_JS_PUBLIC_INCLUDE_DIRS=${shellQuote(value)}`);
+  console.log('export NODE_JS_PUBLIC_INCLUDE_DIRS');
+}
+
 function main(): void {
   const version = requestedVersion();
   const dir = ensureHeaders(version);
-  const value = includeDirs(dir).join(path.delimiter);
-  console.log(`NODE_JS_PUBLIC_INCLUDE_DIRS=${shellQuote(value)}`);
-  console.log(`export NODE_JS_PUBLIC_INCLUDE_DIRS`);
+  const value = joinPathList(includeDirs(dir));
+  const envPath = githubEnvPath();
+  if (envPath) {
+    writeSimpleGithubEnv(envPath, 'NODE_JS_PUBLIC_INCLUDE_DIRS', value);
+    console.log(`NODE_JS_PUBLIC_INCLUDE_DIRS written to ${envPath}`);
+    return;
+  }
+
+  printShellEnv(value);
 }
 
 main();

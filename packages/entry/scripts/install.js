@@ -3,9 +3,14 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { toPortablePath } = require('./path-utils.js');
 
 const root = path.resolve(__dirname, '..');
 const NAPI_VERSION = '9';
+
+function relativePathForLog(from, to) {
+  return toPortablePath(path.relative(from, to));
+}
 
 function linuxLibc() {
   if (process.platform !== 'linux') return undefined;
@@ -256,7 +261,7 @@ function copyNodeGypOutput() {
 
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.copyFileSync(source, target);
-  console.log(`Copied ${path.relative(root, source)} -> ${path.relative(root, target)}`);
+  console.log(`Copied ${relativePathForLog(root, source)} -> ${relativePathForLog(root, target)}`);
 }
 
 function validateLocalBuild() {

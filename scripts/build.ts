@@ -1,6 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import {
+  joinPathList,
+  relativePathForLog,
+  splitPathList,
+} from './path-utils.js';
 
 const BACKEND_NAPI = 'napi';
 const BACKEND_NODEABI = 'nodeabi';
@@ -159,7 +164,7 @@ function nodeIncludeDir(): string {
 
 function nodeHeaderIncludeDirs(): string[] {
   const explicit = process.env.NODE_JS_PUBLIC_INCLUDE_DIRS;
-  if (explicit) return explicit.split(path.delimiter).filter(Boolean);
+  if (explicit) return splitPathList(explicit);
 
   throw new Error('nodeabi backend requires NODE_JS_PUBLIC_INCLUDE_DIRS');
 }
@@ -213,7 +218,7 @@ function assertNodeHeaders(includeDir: string): void {
   const dirs = backend === 'nodeabi' ? nodeHeaderIncludeDirs() : [includeDir];
   const found = dirs.some((dir) => fs.existsSync(path.join(dir, 'node.h')));
   if (!found) {
-    throw new Error(`Node.js public headers not found under ${dirs.join(path.delimiter)}`);
+    throw new Error(`Node.js public headers not found under ${joinPathList(dirs)}`);
   }
 }
 
@@ -235,7 +240,7 @@ function buildWithNodeGyp(): void {
     '--enable-thin-lto=false',
     '--lto-jobs=',
   ];
-  console.log(`Building ${path.relative(root, output)} (${backend}) with node-gyp`);
+  console.log(`Building ${relativePathForLog(root, output)} (${backend}) with node-gyp`);
   const result = spawnSync(process.execPath, gypArgs, {
     cwd: packageRoot,
     stdio: 'inherit',
@@ -262,7 +267,7 @@ function buildWithNodeGyp(): void {
   }
   fs.mkdirSync(outDir, { recursive: true });
   fs.copyFileSync(gypOutput, output);
-  console.log(`Copied ${path.relative(root, gypOutput)} -> ${path.relative(root, output)}`);
+  console.log(`Copied ${relativePathForLog(root, gypOutput)} -> ${relativePathForLog(root, output)}`);
 }
 
 function main(): void {
@@ -278,7 +283,7 @@ function main(): void {
 
   const compiler = process.env.CXX || 'c++';
   const args = compileArgs(includeDir);
-  console.log(`Building ${path.relative(root, output)} (${backend}) with ${process.execPath}`);
+  console.log(`Building ${relativePathForLog(root, output)} (${backend}) with ${process.execPath}`);
   const result = spawnSync(compiler, args, {
     cwd: root,
     stdio: 'inherit',
@@ -296,7 +301,7 @@ function nodeAddonApiIncludeDir(): string {
   ];
   const found = candidates.find((candidate) => fs.existsSync(candidate));
   if (!found) {
-    throw new Error(`node-addon-api include directory not found under ${candidates.join(path.delimiter)}`);
+    throw new Error(`node-addon-api include directory not found under ${joinPathList(candidates)}`);
   }
   return found;
 }

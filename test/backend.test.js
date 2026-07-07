@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const addon = require('../packages/entry');
+const { toPortablePath } = require('../packages/entry/scripts/path-utils.js');
 
 function sortedKeys(value) {
   return Object.keys(value).sort();
@@ -26,7 +27,6 @@ const expectedOptionalBinary = expectedBackend === 'nodeabi'
 const expectedLocalBuildPath = expectedBackend === 'nodeabi'
   ? new RegExp(`build/nodeabi/node-v[0-9]+-${platformSuffix}/internal_require\\.node$`)
   : new RegExp(`build/napi/napi-v9-${platformSuffix}/internal_require\\.node$`);
-const normalizePath = (value) => value.replaceAll('\\', '/');
 
 assert.equal(
   info.optionalPackageName,
@@ -34,8 +34,8 @@ assert.equal(
 );
 assert.equal(typeof platformSuffix, 'string');
 assert.match(info.bindingPath, /\.node$/);
-assert.match(normalizePath(info.localBindingPath), expectedLocalBuildPath);
-assert.equal(normalizePath(info.optionalBinaryRelativePath), expectedOptionalBinary);
+assert.match(toPortablePath(info.localBindingPath), expectedLocalBuildPath);
+assert.equal(toPortablePath(info.optionalBinaryRelativePath), expectedOptionalBinary);
 
 if (process.env.DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD === '1') {
   assert.match(info.bindingSource, /^optional-package/);

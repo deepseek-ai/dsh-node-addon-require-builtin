@@ -107,11 +107,7 @@ jobs:
 
       - name: Prepare Node.js public headers
         if: matrix.optional
-        shell: bash
-        run: |
-          pnpm -s headers > "$RUNNER_TEMP/node-headers.env"
-          source "$RUNNER_TEMP/node-headers.env"
-          echo "NODE_JS_PUBLIC_INCLUDE_DIRS=$NODE_JS_PUBLIC_INCLUDE_DIRS" >> "$GITHUB_ENV"
+        run: pnpm -s headers -- --github-env
 
       - name: Test current-platform optional package (nodeabi)
         if: matrix.optional

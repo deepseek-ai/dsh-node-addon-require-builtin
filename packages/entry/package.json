@@ -20,6 +20,7 @@
     "binding.gyp",
     "lib/",
     "scripts/install.js",
+    "scripts/path-utils.js",
     "src/*.cc",
     "src/*.h",
     "src/runtime_context/*.cc",
