@@ -1,6 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { gunzipSync } from 'node:zlib';
+import {
+  joinPathList,
+  writeSimpleGithubEnv,
+} from './path-utils.js';
 
 const root = path.resolve(__dirname, '..');
 const cacheRoot = process.env.DSH_NODE_ADDON_INTERNAL_HEADERS_CACHE ||
@@ -51,6 +56,97 @@ function includeDirs(dir: string): string[] {
   return [path.join(dir, 'include', 'node')];
 }
 
+function readTarString(buffer: Buffer, start: number, length: number): string {
+  const end = buffer.indexOf(0, start);
+  const sliceEnd = end >= start && end < start + length ? end : start + length;
+  return buffer.toString('utf8', start, sliceEnd);
+}
+
+function readTarOctal(buffer: Buffer, start: number, length: number): number {
+  const text = readTarString(buffer, start, length).trim();
+  return text ? Number.parseInt(text, 8) : 0;
+}
+
+function isZeroBlock(buffer: Buffer, start: number): boolean {
+  for (let index = start; index < start + 512; index += 1) {
+    if (buffer[index] !== 0) return false;
+  }
+  return true;
+}
+
+function strippedEntryParts(entryName: string): string[] | null {
+  const parts = entryName
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter((part) => part.length > 0 && part !== '.');
+
+  if (parts.some((part) => part === '..')) {
+    throw new Error(`unsafe path in Node.js headers archive: ${entryName}`);
+  }
+
+  const stripped = parts.slice(1);
+  return stripped.length > 0 ? stripped : null;
+}
+
+function destinationPath(rootDir: string, entryName: string): string | null {
+  const parts = strippedEntryParts(entryName);
+  if (!parts) return null;
+
+  const rootPath = path.resolve(rootDir);
+  const target = path.resolve(rootPath, ...parts);
+  const relative = path.relative(rootPath, target);
+  if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`unsafe path in Node.js headers archive: ${entryName}`);
+  }
+  return target;
+}
+
+function extractNodeHeadersTarball(tarball: string, destination: string): void {
+  const data = gunzipSync(fs.readFileSync(tarball));
+  let longName: string | undefined;
+
+  for (let offset = 0; offset + 512 <= data.length;) {
+    if (isZeroBlock(data, offset)) return;
+
+    const name = readTarString(data, offset, 100);
+    const size = readTarOctal(data, offset + 124, 12);
+    const type = readTarString(data, offset + 156, 1) || '0';
+    const prefix = readTarString(data, offset + 345, 155);
+    const entryName = longName || (prefix ? `${prefix}/${name}` : name);
+    longName = undefined;
+
+    const contentStart = offset + 512;
+    const contentEnd = contentStart + size;
+    const nextOffset = contentStart + Math.ceil(size / 512) * 512;
+
+    if (type === 'L') {
+      longName = data.toString('utf8', contentStart, contentEnd).replace(/\0.*$/s, '');
+      offset = nextOffset;
+      continue;
+    }
+    if (type === 'x' || type === 'g') {
+      offset = nextOffset;
+      continue;
+    }
+
+    const target = destinationPath(destination, entryName);
+    if (target) {
+      if (type === '5') {
+        fs.mkdirSync(target, { recursive: true });
+      } else if (type === '0' || type === '') {
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, data.subarray(contentStart, contentEnd));
+      } else {
+        throw new Error(`unsupported entry type in Node.js headers archive: ${type} ${entryName}`);
+      }
+    }
+
+    offset = nextOffset;
+  }
+
+  throw new Error(`invalid tar archive: ${tarball}`);
+}
+
 function ensureHeaders(version: string): string {
   const dir = headersDir(version);
   if (fs.existsSync(path.join(dir, 'include', 'node', 'node.h'))) {
@@ -66,7 +162,7 @@ function ensureHeaders(version: string): string {
   const tmp = path.join(cacheRoot, `.extract-v${version}`);
   fs.rmSync(tmp, { recursive: true, force: true });
   fs.mkdirSync(tmp, { recursive: true });
-  run('tar', ['-xzf', tarball, '-C', tmp, '--strip-components=1']);
+  extractNodeHeadersTarball(tarball, tmp);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.renameSync(tmp, dir);
 
@@ -81,12 +177,38 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
+function githubEnvPath(): string | undefined {
+  const index = process.argv.findIndex((arg) => arg === '--github-env');
+  if (index < 0) return undefined;
+
+  const explicitPath = process.argv[index + 1];
+  if (explicitPath && !explicitPath.startsWith('-')) {
+    return explicitPath;
+  }
+
+  if (!process.env.GITHUB_ENV) {
+    throw new Error('--github-env requires GITHUB_ENV or an explicit file path');
+  }
+  return process.env.GITHUB_ENV;
+}
+
+function printShellEnv(value: string): void {
+  console.log(`NODE_JS_PUBLIC_INCLUDE_DIRS=${shellQuote(value)}`);
+  console.log('export NODE_JS_PUBLIC_INCLUDE_DIRS');
+}
+
 function main(): void {
   const version = requestedVersion();
   const dir = ensureHeaders(version);
-  const value = includeDirs(dir).join(path.delimiter);
-  console.log(`NODE_JS_PUBLIC_INCLUDE_DIRS=${shellQuote(value)}`);
-  console.log(`export NODE_JS_PUBLIC_INCLUDE_DIRS`);
+  const value = joinPathList(includeDirs(dir));
+  const envPath = githubEnvPath();
+  if (envPath) {
+    writeSimpleGithubEnv(envPath, 'NODE_JS_PUBLIC_INCLUDE_DIRS', value);
+    console.log(`NODE_JS_PUBLIC_INCLUDE_DIRS written to ${envPath}`);
+    return;
+  }
+
+  printShellEnv(value);
 }
 
 main();

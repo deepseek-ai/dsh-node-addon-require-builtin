@@ -12,6 +12,8 @@ Rollup: one JS entry package plus platform optional packages.
 @deepseek-ai/dsh-node-addon-internal-darwin-x64
 @deepseek-ai/dsh-node-addon-internal-linux-arm64-gnu
 @deepseek-ai/dsh-node-addon-internal-linux-x64-gnu
+@deepseek-ai/dsh-node-addon-internal-win32-arm64-msvc
+@deepseek-ai/dsh-node-addon-internal-win32-x64-msvc
 ```
 
 Unsupported platforms are intentionally absent from `optionalDependencies`.
@@ -80,6 +82,9 @@ eval "$(pnpm -s headers -- --version 24.18.0)"
 pnpm build:prebuilds
 pnpm test:optional
 ```
+
+Use `pnpm test:optional:nodeabi` after preparing headers to validate the
+Node-major-specific optional prebuild for the current runtime.
 
 Generated `.node` files are ignored by git. Release automation should build
 them on the matching platform before publishing.

@@ -20,6 +20,7 @@
     "binding.gyp",
     "lib/",
     "scripts/install.js",
+    "scripts/path-utils.js",
     "src/*.cc",
     "src/*.h",
     "src/runtime_context/*.cc",
@@ -53,6 +54,8 @@
     "@deepseek-ai/dsh-node-addon-internal-darwin-arm64": "workspace:*",
     "@deepseek-ai/dsh-node-addon-internal-darwin-x64": "workspace:*",
     "@deepseek-ai/dsh-node-addon-internal-linux-arm64-gnu": "workspace:*",
-    "@deepseek-ai/dsh-node-addon-internal-linux-x64-gnu": "workspace:*"
+    "@deepseek-ai/dsh-node-addon-internal-linux-x64-gnu": "workspace:*",
+    "@deepseek-ai/dsh-node-addon-internal-win32-arm64-msvc": "workspace:*",
+    "@deepseek-ai/dsh-node-addon-internal-win32-x64-msvc": "workspace:*"
   }
 }

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { splitPathList } from './path-utils.js';
 
 const root = path.resolve(__dirname, '..');
 const majors = [20, 22, 24, 26];
@@ -12,7 +13,7 @@ function nvmVersionsDir(): string {
 function discoverNodeBins(): string[] {
   const explicit = process.env.NODE_TEST_BINS;
   if (explicit) {
-    return explicit.split(path.delimiter).filter(Boolean);
+    return splitPathList(explicit);
   }
 
   const dir = nvmVersionsDir();

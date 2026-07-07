@@ -20,7 +20,9 @@
     "test:decoder": "tsx ./scripts/test-getter-decoder.ts",
     "test:backends": "pnpm build:ts && tsx ./scripts/test-backends.ts",
     "test:nodeabi": "pnpm build:ts && pnpm build:native:nodeabi && DSH_NODE_ADDON_INTERNAL_BACKEND=nodeabi DSH_NODE_ADDON_INTERNAL_DISABLE_OPTIONAL_PACKAGE=1 node ./test/backend.test.js",
-    "test:optional": "pnpm build:prebuild:napi && DSH_NODE_ADDON_INTERNAL_BACKEND=napi DSH_NODE_ADDON_INTERNAL_EXPECTED_BACKEND=napi DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD=1 node ./test/backend.test.js",
+    "test:optional": "pnpm test:optional:napi",
+    "test:optional:napi": "pnpm build:prebuild:napi && DSH_NODE_ADDON_INTERNAL_BACKEND=napi DSH_NODE_ADDON_INTERNAL_EXPECTED_BACKEND=napi DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD=1 node ./test/backend.test.js",
+    "test:optional:nodeabi": "pnpm build:prebuild:nodeabi && DSH_NODE_ADDON_INTERNAL_BACKEND=nodeabi DSH_NODE_ADDON_INTERNAL_EXPECTED_BACKEND=nodeabi DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD=1 node ./test/backend.test.js",
     "test:all": "pnpm build:ts && tsx ./scripts/test-all.ts",
     "typecheck": "tsc --noEmit && tsc -b --dry"
   },

@@ -22,6 +22,8 @@ Published packages use a main package plus platform optional packages:
 @deepseek-ai/dsh-node-addon-internal-darwin-x64
 @deepseek-ai/dsh-node-addon-internal-linux-arm64-gnu
 @deepseek-ai/dsh-node-addon-internal-linux-x64-gnu
+@deepseek-ai/dsh-node-addon-internal-win32-arm64-msvc
+@deepseek-ai/dsh-node-addon-internal-win32-x64-msvc
 @deepseek-ai/dsh-node-addon-internal-loader
 ```
 
@@ -97,14 +99,22 @@ See [docs/development.md](docs/development.md) for the full local workflow,
 
 ## Support Status
 
-The actively published prebuild target set is intentionally conservative:
+The supported optional prebuild target set is intentionally conservative:
 
-- macOS arm64/x64
-- Linux glibc arm64/x64
-- Node 20, 22, 24, and 26 runtime families
+| Platform | Node 20 | Node 22 | Node 24 | Node 26 |
+|---|---|---|---|---|
+| macOS arm64 (`darwin-arm64`) | Supported | Supported | Supported | Supported |
+| macOS x64 (`darwin-x64`) | Supported | Supported | Supported | Supported |
+| Linux glibc arm64 (`linux-arm64-gnu`) | Supported | Supported | Supported | Supported |
+| Linux glibc x64 (`linux-x64-gnu`) | Supported | Supported | Supported | Supported |
+| Windows arm64 MSVC (`win32-arm64-msvc`) | Pending CI | Pending CI | Pending CI | Pending CI |
+| Windows x64 MSVC (`win32-x64-msvc`) | Supported | Supported | Supported | Supported |
 
-Linux musl and Windows are not published until their runtime probing paths are
-implemented and CI-validated. See [docs/support-matrix.md](docs/support-matrix.md).
+Supported optional packages publish `napi-v9` plus Node-major-specific
+`nodeabi` binaries for Node 20, 22, 24, and 26. Linux musl is not published yet.
+Windows arm64 package metadata is present, but CI is temporarily disabled while
+the `win32-arm64-msvc` runtime path is fixed.
+See [docs/support-matrix.md](docs/support-matrix.md).
 
 ## License
 

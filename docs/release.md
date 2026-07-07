@@ -36,6 +36,7 @@ pnpm test:backends
 eval "$(pnpm -s headers -- --version 24.18.0)"
 pnpm build:prebuilds
 pnpm test:optional
+pnpm test:optional:nodeabi
 ```
 
 Only publish platform packages with the expected `prebuilt/` contents for that

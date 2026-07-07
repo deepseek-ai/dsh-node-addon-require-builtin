@@ -128,9 +128,11 @@ Implemented parser families:
 - macOS x64
 - Linux glibc arm64
 - Linux glibc x64
+- Windows arm64
+- Windows x64
 
-Linux musl and Windows are intentionally not published until their full runtime
-probing paths are implemented and CI-validated.
+Linux musl is intentionally not published until its full runtime probing path is
+implemented and CI-validated.
 
 ## Build Outputs
 
