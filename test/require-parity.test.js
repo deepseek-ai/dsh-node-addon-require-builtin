@@ -18,13 +18,14 @@ assert.ok(
 const addon = require('../packages/entry');
 
 const cases = [
-  ['internal/modules/esm/loader', () => addon.getModulesEsmLoader()],
-  ['internal/modules/cjs/loader', () => addon.getModulesCjsLoader()],
+  'internal/modules/esm/loader',
+  'internal/modules/cjs/loader',
 ];
 
-for (const [id, getViaAddon] of cases) {
+for (const id of cases) {
   const genuine = require(id);
-  const viaAddon = getViaAddon();
+  assert.equal(addon.isAllowedInternalId(id), true);
+  const viaAddon = addon.requireBuiltin(id);
   assert.equal(
     typeof viaAddon,
     'object',

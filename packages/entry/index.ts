@@ -2,8 +2,8 @@ import path from 'node:path';
 
 interface LoadedBinding {
   binding: {
-    getModulesCjsLoader: () => unknown;
-    getModulesEsmLoader: () => unknown;
+    requireBuiltin: (moduleId: string) => unknown;
+    isAllowedInternalId: (moduleId: string) => boolean;
     getNativeBindingInfo: () => NativeBindingInfo;
   };
   path: string;
@@ -50,12 +50,12 @@ const loadedBinding = loadEntry({
 const binding = loadedBinding.binding;
 let bindingInfo: Readonly<BindingInfo> | undefined;
 
-export function getModulesCjsLoader(): unknown {
-  return binding.getModulesCjsLoader();
+export function requireBuiltin(moduleId: string): unknown {
+  return binding.requireBuiltin(moduleId);
 }
 
-export function getModulesEsmLoader(): unknown {
-  return binding.getModulesEsmLoader();
+export function isAllowedInternalId(moduleId: string): boolean {
+  return binding.isAllowedInternalId(moduleId);
 }
 
 export function getBindingInfo(): Readonly<BindingInfo> {
@@ -76,8 +76,8 @@ export function getBindingInfo(): Readonly<BindingInfo> {
 }
 
 const api = {
-  getModulesCjsLoader,
-  getModulesEsmLoader,
+  requireBuiltin,
+  isAllowedInternalId,
   getBindingInfo,
 };
 

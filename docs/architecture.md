@@ -45,14 +45,13 @@ Selection order:
 
 `packages/entry/src/node_api_addon.cc` exports:
 
-- `getModulesCjsLoader()`
-- `getModulesEsmLoader()`
+- `requireBuiltin(moduleId)`
+- `isAllowedInternalId(moduleId)`
 - `getNativeBindingInfo()`
 
-The JS entry package re-exports only `getModulesCjsLoader()`,
-`getModulesEsmLoader()`, and a lazy `getBindingInfo()` wrapper around native and
-loader metadata. It does not expose a generic `requireBuiltin()` or `probe()`
-API.
+The JS entry package re-exports only `requireBuiltin(moduleId)`,
+`isAllowedInternalId(moduleId)`, and a lazy `getBindingInfo()` wrapper around
+native and loader metadata. It does not expose `probe()` directly.
 
 ## Probe Decision Flow
 
@@ -63,14 +62,15 @@ control flow:
 2. Verify the JS function name is `requireBuiltin`.
 3. Smoke test `requireBuiltin('internal/bootstrap/realm')`.
 4. Verify the realm export self-reference points back to the same function.
-5. Reject target ids outside `internal/modules/cjs/loader` and
-   `internal/modules/esm/loader`.
+5. Reject module ids outside the documented internal module allowlist.
 6. Load the selected target internal module and record whether it returned
    exports. The getter does not inspect target export properties.
 
 Target-load exceptions are converted into clear unsupported errors with
-diagnostics. The only public target selection is in C++ through the fixed CJS
-and ESM loader getter functions.
+diagnostics. The allowlist is enforced in C++ before the private
+`requireBuiltin()` value is resolved or called. See
+[internal-modules.md](internal-modules.md) for the supported module ids and Node
+version ranges.
 
 ## Runtime Backends
 

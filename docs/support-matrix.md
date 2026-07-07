@@ -15,6 +15,10 @@ The implemented target families are:
 
 The N-API backend targets `napi-v9` across these majors.
 
+The internal module allowlist is documented separately in
+[internal-modules.md](internal-modules.md), including the supported semver
+ranges for each Node major.
+
 ## Platform x Node Matrix
 
 Supported optional prebuild packages:

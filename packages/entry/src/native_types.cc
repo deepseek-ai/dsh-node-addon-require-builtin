@@ -121,11 +121,11 @@ bool IsPointerAligned(uintptr_t value) {
   return value != 0 && (value % alignof(void*)) == 0;
 }
 
-bool IsAllowedTarget(std::string_view target) {
-  return target == kCjsLoaderTarget || target == kEsmLoaderTarget;
+bool IsAllowedInternalId(std::string_view module_id) {
+  return module_id == kCjsLoaderTarget || module_id == kEsmLoaderTarget;
 }
 
-std::string_view AllowedTargetList() {
+std::string_view AllowedInternalIdList() {
   return "internal/modules/cjs/loader, internal/modules/esm/loader";
 }
 

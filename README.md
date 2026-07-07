@@ -36,16 +36,22 @@ back to a local `node-gyp` build under `packages/entry/build/`.
 ```js
 const internalAddon = require('@deepseek-ai/dsh-node-addon-internal');
 
-const esmLoader = internalAddon.getModulesEsmLoader();
+const esmLoader = internalAddon.requireBuiltin('internal/modules/esm/loader');
 const cascadedLoader = esmLoader.getOrInitializeCascadedLoader();
 ```
 
 The public API is intentionally small:
 
-- `getModulesCjsLoader()`: returns `internal/modules/cjs/loader`.
-- `getModulesEsmLoader()`: returns `internal/modules/esm/loader`.
+- `requireBuiltin(moduleId)`: returns an allowlisted internal module.
+- `isAllowedInternalId(moduleId)`: returns whether `moduleId` is loadable.
 - `getBindingInfo()`: lazily returns binding diagnostics such as `mode`,
   `backend`, `abi`, `bindingSource`, and `bindingPath`.
+
+By default, only `internal/modules/cjs/loader` and
+`internal/modules/esm/loader` are allowlisted. The allowlist is enforced in the
+native addon before calling Node's internal `requireBuiltin()`.
+See [docs/internal-modules.md](docs/internal-modules.md) for the allowlist and
+supported Node version ranges.
 
 Treat returned internal modules as unstable Node implementation details. This
 package does not make Node internals public API.
@@ -116,7 +122,8 @@ Supported optional packages publish `napi-v9` plus Node-major-specific
 `nodeabi` binaries for Node 20, 22, 24, and 26. Linux musl is not published yet.
 Node.js stopped shipping 32-bit Windows binaries after v22, so `win32-ia32-msvc`
 covers only Node 20 and 22.
-See [docs/support-matrix.md](docs/support-matrix.md).
+See [docs/support-matrix.md](docs/support-matrix.md) and
+[docs/internal-modules.md](docs/internal-modules.md).
 
 ## License
 

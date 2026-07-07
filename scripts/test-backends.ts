@@ -28,8 +28,8 @@ function captureProbe(backend: string): ProbeSummary {
   const script = `
     const addon = require('./packages/entry');
     const info = addon.getBindingInfo();
-    const esmLoader = addon.getModulesEsmLoader();
-    const cjsLoader = addon.getModulesCjsLoader();
+    const esmLoader = addon.requireBuiltin('internal/modules/esm/loader');
+    const cjsLoader = addon.requireBuiltin('internal/modules/cjs/loader');
     console.log(JSON.stringify({
       backend: info.backend,
       abi: info.abi,

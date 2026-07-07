@@ -68,11 +68,12 @@ even if `dlopen` succeeds.
 
 The main package includes `scripts/install.js`. If no optional prebuild passes
 validation, it runs `node-gyp rebuild`, copies the resulting N-API binary to the
-local build layout, and validates both loader getters.
+local build layout, and validates both default allowlisted modules.
 
-Install validation calls `getModulesCjsLoader()` and `getModulesEsmLoader()`
-because a binary that loads but cannot obtain those internal modules is not
-usable for this package.
+Install validation calls `requireBuiltin('internal/modules/cjs/loader')` and
+`requireBuiltin('internal/modules/esm/loader')` through the package API because
+a binary that loads but cannot obtain those internal modules is not usable for
+this package.
 
 ## Release Outputs
 

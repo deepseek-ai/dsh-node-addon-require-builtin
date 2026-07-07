@@ -73,8 +73,15 @@ void ThrowUnsupported(Napi::Env env, const InternalRequireProbe& probe) {
   error.ThrowAsJavaScriptException();
 }
 
-Napi::Value GetLoader(Napi::Env env, std::string_view target) {
-  InternalRequireProbe probe(env, Napi::String::New(env, target), true);
+Napi::Value RequireBuiltin(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (info.Length() < 1 || !info[0].IsString()) {
+    Napi::TypeError::New(env, "moduleId must be a string")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  InternalRequireProbe probe(env, info[0], true);
   probe.Run();
   const ProbeState& state = probe.state();
   if (state.status != ProbeStatus::kSupported || state.target_exports == nullptr) {
@@ -85,12 +92,14 @@ Napi::Value GetLoader(Napi::Env env, std::string_view target) {
   return Napi::Value(env, state.target_exports);
 }
 
-Napi::Value GetModulesCjsLoader(const Napi::CallbackInfo& info) {
-  return GetLoader(info.Env(), kCjsLoaderTarget);
-}
+Napi::Value IsAllowedInternalIdBinding(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (info.Length() < 1 || !info[0].IsString()) {
+    return Napi::Boolean::New(env, false);
+  }
 
-Napi::Value GetModulesEsmLoader(const Napi::CallbackInfo& info) {
-  return GetLoader(info.Env(), kEsmLoaderTarget);
+  const std::string module_id = info[0].As<Napi::String>().Utf8Value();
+  return Napi::Boolean::New(env, IsAllowedInternalId(module_id));
 }
 
 Napi::Value GetNativeBindingInfo(const Napi::CallbackInfo& info) {
@@ -105,8 +114,9 @@ Napi::Value GetNativeBindingInfo(const Napi::CallbackInfo& info) {
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
   // Public Node-API surface. The exported addon remains N-API-loadable across
   // Node versions; private runtime compatibility is handled below the API layer.
-  exports.Set("getModulesCjsLoader", Napi::Function::New(env, GetModulesCjsLoader));
-  exports.Set("getModulesEsmLoader", Napi::Function::New(env, GetModulesEsmLoader));
+  exports.Set("requireBuiltin", Napi::Function::New(env, RequireBuiltin));
+  exports.Set("isAllowedInternalId",
+              Napi::Function::New(env, IsAllowedInternalIdBinding));
   exports.Set("getNativeBindingInfo", Napi::Function::New(env, GetNativeBindingInfo));
   return exports;
 }

@@ -13,11 +13,9 @@ InternalRequireProbe::InternalRequireProbe(Napi::Env env,
   if (target.IsString()) {
     Napi::String candidate = target.As<Napi::String>();
     const std::string candidate_text = candidate.Utf8Value();
-    if (!candidate_text.empty()) {
-      target_id_ = candidate;
-      state_.target = candidate_text;
-      return;
-    }
+    target_id_ = candidate;
+    state_.target = candidate_text;
+    return;
   }
 
   if (load_target_) target_id_ = Napi::String::New(env_, kDefaultTarget);
@@ -114,9 +112,9 @@ Result<ProbeOutcome> InternalRequireProbe::LoadTargetModule() {
 }
 
 Status InternalRequireProbe::RunStatus() {
-  if (load_target_ && !IsAllowedTarget(state_.target)) {
-    std::string message = "target must be one of: ";
-    message.append(AllowedTargetList());
+  if (load_target_ && !IsAllowedInternalId(state_.target)) {
+    std::string message = "moduleId must be one of: ";
+    message.append(AllowedInternalIdList());
     return Status::Failure(ProbeStatus::kUnsupportedDisallowedTarget, message);
   }
 

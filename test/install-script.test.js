@@ -182,11 +182,11 @@ assert.deepEqual(
   assert.match(script, /error\.stack/);
   assert.match(script, /code:/);
   assert.match(script, /keys=/);
-  assert.match(script, /validateLoader\('esm loader'/);
-  assert.match(script, /validateLoader\('cjs loader'/);
+  assert.match(script, /validateInternalModule\('internal\/modules\/esm\/loader'/);
+  assert.match(script, /validateInternalModule\('internal\/modules\/cjs\/loader'/);
   assert.ok(
-    script.indexOf("validateLoader('esm loader'") <
-      script.indexOf("validateLoader('cjs loader'"),
+    script.indexOf("validateInternalModule('internal/modules/esm/loader'") <
+      script.indexOf("validateInternalModule('internal/modules/cjs/loader'"),
     'install validation should probe ESM before CJS',
   );
 }

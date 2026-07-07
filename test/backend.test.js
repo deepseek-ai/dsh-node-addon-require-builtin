@@ -63,19 +63,36 @@ assert.equal(info.abi, expectedAbi);
 
 const nativeBinding = require(info.bindingPath);
 assert.equal(typeof nativeBinding.getNativeBindingInfo, 'function');
-assert.equal(typeof nativeBinding.getModulesCjsLoader, 'function');
-assert.equal(typeof nativeBinding.getModulesEsmLoader, 'function');
+assert.equal(typeof nativeBinding.requireBuiltin, 'function');
+assert.equal(typeof nativeBinding.isAllowedInternalId, 'function');
 assert.deepEqual(nativeBinding.getNativeBindingInfo(), {
   mode: expectedMode,
   backend: expectedBackend,
   abi: expectedAbi,
 });
 
-const esmLoader = addon.getModulesEsmLoader();
+assert.equal(typeof addon.requireBuiltin, 'function');
+assert.equal(typeof addon.isAllowedInternalId, 'function');
+assert.equal(addon.isAllowedInternalId('internal/modules/esm/loader'), true);
+assert.equal(addon.isAllowedInternalId('internal/modules/cjs/loader'), true);
+assert.equal(addon.isAllowedInternalId('internal/bootstrap/realm'), false);
+assert.equal(addon.isAllowedInternalId(''), false);
+assert.throws(() => addon.requireBuiltin(), /moduleId must be a string/);
+assert.throws(
+  () => addon.requireBuiltin('internal/bootstrap/realm'),
+  (error) => {
+    assert.equal(error.code, 'Unsupported/disallowed-target');
+    assert.equal(error.diagnostics.target, 'internal/bootstrap/realm');
+    assert.match(error.message, /moduleId must be one of:/);
+    return true;
+  },
+);
+
+const esmLoader = addon.requireBuiltin('internal/modules/esm/loader');
 assert.equal(typeof esmLoader, 'object');
 console.log(`esm_loader_keys=${sortedKeys(esmLoader).join(',')}`);
 
-const cjsLoader = addon.getModulesCjsLoader();
+const cjsLoader = addon.requireBuiltin('internal/modules/cjs/loader');
 assert.equal(typeof cjsLoader, 'object');
 console.log(`cjs_loader_keys=${sortedKeys(cjsLoader).join(',')}`);
 

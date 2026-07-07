@@ -27,8 +27,8 @@ interface PrebuildsManifest {
 }
 
 interface NativeBinding {
-  getModulesCjsLoader: () => unknown;
-  getModulesEsmLoader: () => unknown;
+  requireBuiltin: (moduleId: string) => unknown;
+  isAllowedInternalId: (moduleId: string) => boolean;
   getNativeBindingInfo: () => NativeBindingInfo;
   bindingPath?: string;
   nativeBindingInfo?: NativeBindingInfo;
@@ -214,11 +214,11 @@ function validateLoadedBinding(binding: NativeBinding, bindingPath: string): Nat
     throw new Error(`native binding did not export an object: ${bindingPath}`);
   }
 
-  if (typeof binding.getModulesCjsLoader !== 'function') {
-    throw new Error(`native binding did not export getModulesCjsLoader(): ${bindingPath}`);
+  if (typeof binding.requireBuiltin !== 'function') {
+    throw new Error(`native binding did not export requireBuiltin(): ${bindingPath}`);
   }
-  if (typeof binding.getModulesEsmLoader !== 'function') {
-    throw new Error(`native binding did not export getModulesEsmLoader(): ${bindingPath}`);
+  if (typeof binding.isAllowedInternalId !== 'function') {
+    throw new Error(`native binding did not export isAllowedInternalId(): ${bindingPath}`);
   }
   if (typeof binding.getNativeBindingInfo !== 'function') {
     throw new Error(`native binding did not export getNativeBindingInfo(): ${bindingPath}`);

@@ -49,9 +49,22 @@ function validationScript() {
     try {
       trace('validation: requiring addon entry');
       const addon = require(${JSON.stringify(root)});
-      const validateLoader = (name, getter) => {
+      const validateInternalModule = (id) => {
+        if (typeof addon.isAllowedInternalId !== 'function') {
+          console.error('isAllowedInternalId export was not returned');
+          process.exit(1);
+        }
+        if (!addon.isAllowedInternalId(id)) {
+          console.error(id + ' is not allowed');
+          process.exit(1);
+        }
+        if (typeof addon.requireBuiltin !== 'function') {
+          console.error('requireBuiltin export was not returned');
+          process.exit(1);
+        }
+        const name = id.replace(/^internal\\/modules\\//, '');
         trace('validation: probing ' + name);
-        const exports = getter();
+        const exports = addon.requireBuiltin(id);
         if (exports == null || typeof exports !== 'object') {
           console.error(name + ' exports were not returned');
           process.exit(1);
@@ -60,8 +73,8 @@ function validationScript() {
         trace('validation: ' + name + ' ok');
       };
       trace('validation: addon entry loaded');
-      validateLoader('esm loader', () => addon.getModulesEsmLoader());
-      validateLoader('cjs loader', () => addon.getModulesCjsLoader());
+      validateInternalModule('internal/modules/esm/loader');
+      validateInternalModule('internal/modules/cjs/loader');
       if (typeof addon.getBindingInfo !== 'function') {
         console.error('getBindingInfo export was not returned');
         process.exit(1);
