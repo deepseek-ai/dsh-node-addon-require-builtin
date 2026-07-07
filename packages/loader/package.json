@@ -17,7 +17,9 @@
   },
   "files": [
     "README.md",
-    "lib/"
+    "lib/",
+    "!lib/.tsbuildinfo",
+    "!lib/*.tsbuildinfo"
   ],
   "engines": {
     "node": ">=20"

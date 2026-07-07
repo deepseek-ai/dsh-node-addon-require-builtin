@@ -19,6 +19,8 @@
     "README.md",
     "binding.gyp",
     "lib/",
+    "!lib/.tsbuildinfo",
+    "!lib/*.tsbuildinfo",
     "scripts/install.js",
     "scripts/path-utils.js",
     "src/*.cc",

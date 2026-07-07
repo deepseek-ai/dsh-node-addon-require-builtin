@@ -13,8 +13,9 @@ as another strategy in the same matrix.
 - Do not edit `../src` from here.
 - Fixtures and runner code live in this directory so the comparison is
   reproducible inside this repository.
-- The addon strategies load the parent package at `..`; build the parent addon
-  before running the comparison.
+- The addon strategies load the entry package at `../packages/entry`; build the
+  parent addon or provide a current-platform optional prebuild before running
+  the comparison.
 
 ## Install and run
 
@@ -36,6 +37,12 @@ node dist/runner/index.mjs
 The runner starts each `scenario x strategy` case in a separate Node process.
 The main process does not need `--expose-gc`; each strategy declares its own
 `nodeArgs`.
+
+Addon strategies use the package loader's normal optional-prebuild-first
+selection. To force a local build during development, run the compiled runner
+with `DSH_NODE_ADDON_INTERNAL_DISABLE_OPTIONAL_PACKAGE=1`. To verify a prebuild
+artifact, use `DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD=1` and set
+`DSH_NODE_ADDON_INTERNAL_BACKEND=napi` or `nodeabi`.
 
 ## Scenarios
 
@@ -150,9 +157,8 @@ Expected: works for both current fixture formats, but still requires
 Uses this repository's addon instead of `--expose-internals`:
 
 ```ts
-process.env.DSH_NODE_ADDON_INTERNAL_DISABLE_OPTIONAL_PACKAGE ??= '1'
-const addon = require(addonRoot)
-const loaderModule = addon.getModulesEsmLoader()
+const addon = require(entryPackageRoot)
+const loaderModule = addon.requireBuiltin('internal/modules/esm/loader')
 const loadCache = loaderModule.getOrInitializeCascadedLoader().loadCache
 ```
 

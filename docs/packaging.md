@@ -89,4 +89,6 @@ Use `pnpm test:optional:nodeabi` after preparing headers to validate the
 Node-major-specific optional prebuild for the current runtime.
 
 Generated `.node` files are ignored by git. Release automation should build
-them on the matching platform before publishing.
+them on the matching platform before publishing. Normal CI artifacts are
+verification outputs only; release publishing rebuilds the full `prebuilds.json`
+matrix from the release tag and publishes the assembled tarballs.

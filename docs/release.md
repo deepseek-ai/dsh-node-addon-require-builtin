@@ -14,6 +14,11 @@ Update the version in:
 Keep `workspace:*` dependencies in source. pnpm converts them to concrete
 versions during pack/publish.
 
+Version bumps are normal source changes. Open a release PR or commit that
+updates package versions and the lockfile first, merge it, then create a
+matching `vX.Y.Z` tag from that commit. The publish workflow validates that the
+tag version matches every published package version.
+
 ## Preflight
 
 ```sh
@@ -56,8 +61,24 @@ list.
 
 ## Publish
 
+Use GitHub Actions for release builds so every native binary is built on its
+matching platform. The `Release` workflow is manual:
+
+1. Run it with `publish=false` to build all platform prebuilds, assemble package
+   tarballs, and upload the `npm-tarballs` artifact for inspection.
+2. Create and push a `vX.Y.Z` tag that matches the package versions.
+3. Run the same workflow from that tag with `publish=true`.
+
+The workflow builds the full set declared by every `packages/<platform>/prebuilds.json`,
+packs tarballs in publish order, then publishes only from the final tarballs.
+It does not reuse normal CI artifacts for publishing.
+
 Use npm's default public registry unless a release explicitly targets another
-registry:
+registry. The workflow supports npm trusted publishing through GitHub OIDC; if
+trusted publishing is not configured, provide an `NPM_TOKEN` repository or
+environment secret.
+
+Manual local publish fallback:
 
 ```sh
 pnpm -r publish --access public --no-git-checks

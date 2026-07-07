@@ -24,7 +24,11 @@
     "test:optional:napi": "pnpm build:prebuild:napi && DSH_NODE_ADDON_INTERNAL_BACKEND=napi DSH_NODE_ADDON_INTERNAL_EXPECTED_BACKEND=napi DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD=1 node ./test/backend.test.js",
     "test:optional:nodeabi": "pnpm build:prebuild:nodeabi && DSH_NODE_ADDON_INTERNAL_BACKEND=nodeabi DSH_NODE_ADDON_INTERNAL_EXPECTED_BACKEND=nodeabi DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD=1 node ./test/backend.test.js",
     "test:all": "pnpm build:ts && tsx ./scripts/test-all.ts",
-    "typecheck": "tsc --noEmit && tsc -b --dry"
+    "typecheck": "tsc --noEmit && tsc -b --dry",
+    "gha:matrix": "node ./scripts/github-matrix.mjs",
+    "release:assemble-prebuilds": "node ./scripts/assemble-prebuilds.mjs",
+    "release:verify": "node ./scripts/verify-release.mjs",
+    "release:pack": "node ./scripts/pack-release.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

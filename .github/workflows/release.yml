@@ -1,0 +1,168 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish packed tarballs to npm. Must run from a v* tag.
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  matrix:
+    name: Matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      prebuilds: ${{ steps.matrix.outputs.prebuilds }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: matrix
+        run: echo "prebuilds=$(node ./scripts/github-matrix.mjs release-prebuild)" >> "$GITHUB_OUTPUT"
+
+  build-prebuilds:
+    name: ${{ matrix.platform }} / ${{ matrix.binaryTag }}
+    needs: matrix
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix.outputs.prebuilds) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          architecture: ${{ matrix.nodearch }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      # pnpm's default script shell on Windows runners cannot run the POSIX-style
+      # inline env assignments in package.json scripts; Git Bash can.
+      - name: Use bash for pnpm scripts (Windows)
+        if: runner.os == 'Windows'
+        run: pnpm config set script-shell "C:\Program Files\Git\bin\bash.exe"
+
+      - name: Install dependencies without package install scripts
+        run: pnpm install --ignore-scripts --frozen-lockfile
+
+      - name: Build TypeScript entrypoints
+        run: pnpm build:ts
+
+      - name: Prepare Node.js public headers
+        if: matrix.backend == 'nodeabi'
+        run: pnpm -s headers -- --github-env
+
+      - name: Build prebuild
+        run: pnpm build:prebuild:${{ matrix.backend }}
+
+      - name: Check prebuild output
+        run: |
+          node -e "const fs = require('node:fs'); const file = 'packages/${{ matrix.platform }}/prebuilt/${{ matrix.filename }}'; if (!fs.existsSync(file)) throw new Error('missing prebuild: ' + file);"
+
+      - name: Upload prebuild
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: packages/${{ matrix.platform }}/prebuilt/${{ matrix.filename }}
+          if-no-files-found: error
+          retention-days: 7
+
+  pack:
+    name: Pack npm tarballs
+    needs: build-prebuilds
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies without package install scripts
+        run: pnpm install --ignore-scripts --frozen-lockfile
+
+      - name: Build TypeScript entrypoints
+        run: pnpm build:ts
+
+      - name: Verify release version
+        run: node ./scripts/verify-release.mjs
+        env:
+          RELEASE_PUBLISH: ${{ inputs.publish }}
+
+      - name: Download prebuild artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: prebuild-*
+          path: .release/prebuild-artifacts
+
+      - name: Assemble and verify prebuilds
+        run: node ./scripts/assemble-prebuilds.mjs .release/prebuild-artifacts
+
+      - name: Verify release payload
+        run: node ./scripts/verify-release.mjs --prebuilds
+        env:
+          RELEASE_PUBLISH: ${{ inputs.publish }}
+
+      - name: Pack release tarballs
+        run: node ./scripts/pack-release.mjs dist/npm
+
+      - name: Upload npm tarballs
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-tarballs
+          path: dist/npm/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish to npm
+    if: inputs.publish
+    needs: pack
+    runs-on: ubuntu-24.04
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Download npm tarballs
+        uses: actions/download-artifact@v4
+        with:
+          name: npm-tarballs
+          path: dist/npm
+
+      - name: Publish tarballs
+        run: |
+          while IFS= read -r tarball; do
+            npm publish "dist/npm/${tarball}" --access public --provenance
+          done < dist/npm/publish-order.txt
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

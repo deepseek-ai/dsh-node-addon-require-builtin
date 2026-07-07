@@ -5,7 +5,11 @@ import { fileURLToPath } from 'node:url'
 import { purgeLoadCacheByPrefix, type LoadCache } from './internalesm-utils.mjs'
 
 type InternalRequireAddon = {
-  getModulesEsmLoader(): unknown
+  requireBuiltin(moduleId: string): unknown
+}
+
+type EsmLoaderModule = {
+  getOrInitializeCascadedLoader(): { loadCache: LoadCache }
 }
 
 const requireFromStrategy = createRequire(import.meta.url)
@@ -13,7 +17,7 @@ const comparisonRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../..',
 )
-const addonRoot = path.resolve(comparisonRoot, '..')
+const addonRoot = path.resolve(comparisonRoot, '..', 'packages', 'entry')
 
 export function purgeFixtureEsmLoadCacheViaAddon(prefix: string): void {
   const loadCache = getAddonEsmLoadCache()
@@ -21,12 +25,8 @@ export function purgeFixtureEsmLoadCacheViaAddon(prefix: string): void {
 }
 
 function getAddonEsmLoadCache(): LoadCache {
-  process.env.DSH_NODE_ADDON_INTERNAL_DISABLE_OPTIONAL_PACKAGE ??= '1'
-
   const addon = requireFromStrategy(addonRoot) as InternalRequireAddon
-  const loaderModule = addon.getModulesEsmLoader() as {
-    getOrInitializeCascadedLoader(): { loadCache: LoadCache }
-  }
+  const loaderModule = addon.requireBuiltin('internal/modules/esm/loader') as EsmLoaderModule
 
   return loaderModule.getOrInitializeCascadedLoader().loadCache
 }

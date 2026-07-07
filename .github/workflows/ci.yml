@@ -10,51 +10,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  matrix:
+    name: Matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      supported: ${{ steps.matrix.outputs.supported }}
+      hmr: ${{ steps.matrix.outputs.hmr }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: matrix
+        run: |
+          echo "supported=$(node ./scripts/github-matrix.mjs ci-supported)" >> "$GITHUB_OUTPUT"
+          echo "hmr=$(node ./scripts/github-matrix.mjs ci-hmr)" >> "$GITHUB_OUTPUT"
+
   supported:
     name: ${{ matrix.platform }} / node ${{ matrix.node }}
+    needs: matrix
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
-      matrix:
-        node: [22, 24, 26]
-        platform:
-          - darwin-arm64
-          - darwin-x64
-          - linux-arm64-gnu
-          - linux-x64-gnu
-          - win32-arm64-msvc
-          - win32-ia32-msvc
-          - win32-x64-msvc
-        include:
-          - platform: darwin-arm64
-            runner: macos-15
-            optional: true
-          - platform: darwin-x64
-            runner: macos-15-intel
-            optional: true
-          - platform: linux-arm64-gnu
-            runner: ubuntu-24.04-arm
-            optional: true
-          - platform: linux-x64-gnu
-            runner: ubuntu-24.04
-            optional: true
-          - platform: win32-arm64-msvc
-            runner: windows-11-arm
-            optional: true
-          - platform: win32-ia32-msvc
-            runner: windows-2025
-            optional: true
-            nodearch: x86
-          - platform: win32-x64-msvc
-            runner: windows-2025
-            optional: true
-        exclude:
-          # Node.js ships no 32-bit Windows runtime for v23+, so win32-ia32 can
-          # only be exercised on the Node majors that still publish win-x86.
-          - platform: win32-ia32-msvc
-            node: 24
-          - platform: win32-ia32-msvc
-            node: 26
+      matrix: ${{ fromJson(needs.matrix.outputs.supported) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -123,3 +99,63 @@ jobs:
       - name: Test current-platform optional package (nodeabi)
         if: matrix.optional
         run: pnpm test:optional:nodeabi
+
+      - name: Upload current-platform prebuilds
+        if: matrix.optional
+        uses: actions/upload-artifact@v4
+        with:
+          name: prebuild-${{ matrix.platform }}-node-${{ matrix.node }}
+          path: packages/${{ matrix.platform }}/prebuilt/*.node
+          if-no-files-found: error
+          retention-days: 7
+
+  hmr-comparison:
+    name: ${{ matrix.platform }} / node ${{ matrix.node }} / hmr prebuild
+    needs:
+      - matrix
+      - supported
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix.outputs.hmr) }}
+    env:
+      DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          architecture: ${{ matrix.nodearch }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies without package install scripts
+        run: pnpm install --ignore-scripts --frozen-lockfile
+
+      - name: Build TypeScript entrypoints
+        run: pnpm build:ts
+
+      - name: Download current-platform prebuilds
+        uses: actions/download-artifact@v4
+        with:
+          name: prebuild-${{ matrix.platform }}-node-${{ matrix.node }}
+          path: packages/${{ matrix.platform }}/prebuilt
+
+      - name: Build HMR comparison
+        run: pnpm exec tsc -p hmr-comparison/tsconfig.json
+
+      - name: Run HMR comparison (N-API prebuild)
+        run: node hmr-comparison/dist/runner/index.mjs
+        env:
+          DSH_NODE_ADDON_INTERNAL_BACKEND: napi
+
+      - name: Run HMR comparison (nodeabi prebuild)
+        run: node hmr-comparison/dist/runner/index.mjs
+        env:
+          DSH_NODE_ADDON_INTERNAL_BACKEND: nodeabi
