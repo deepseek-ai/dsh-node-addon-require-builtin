@@ -5,7 +5,7 @@
 - Node.js 20 or newer.
 - Corepack-enabled pnpm.
 - A C++ compiler supported by Node native addons.
-- `curl` and `tar` for `nodeabi` header preparation.
+- `curl` for `nodeabi` header downloads.
 
 ## First Setup
 

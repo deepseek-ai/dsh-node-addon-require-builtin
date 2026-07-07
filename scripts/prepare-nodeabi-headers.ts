@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { gunzipSync } from 'node:zlib';
 import {
   joinPathList,
-  pathForCliArg,
   writeSimpleGithubEnv,
 } from './path-utils.js';
 
@@ -44,15 +44,6 @@ function run(command: string, args: string[]): void {
   }
 }
 
-function capture(command: string, args: string[]): string {
-  const result = spawnSync(command, args, {
-    cwd: root,
-    encoding: 'utf8',
-  });
-  if (result.error || result.status !== 0) return '';
-  return `${result.stdout || ''}${result.stderr || ''}`;
-}
-
 function headersUrl(version: string): string {
   return `${baseUrl.replace(/\/$/, '')}/v${version}/node-v${version}-headers.tar.gz`;
 }
@@ -65,24 +56,95 @@ function includeDirs(dir: string): string[] {
   return [path.join(dir, 'include', 'node')];
 }
 
-function hasGnuTar(): boolean {
-  return capture('tar', ['--version']).includes('GNU tar');
+function readTarString(buffer: Buffer, start: number, length: number): string {
+  const end = buffer.indexOf(0, start);
+  const sliceEnd = end >= start && end < start + length ? end : start + length;
+  return buffer.toString('utf8', start, sliceEnd);
 }
 
-function tarExtractArgs(tarball: string, destination: string): string[] {
-  const args = [
-    '-xzf',
-    pathForCliArg(tarball),
-    '-C',
-    pathForCliArg(destination),
-    '--strip-components=1',
-  ];
-  if (process.platform === 'win32' && hasGnuTar()) {
-    // GNU tar treats drive-letter paths like D:\... as remote archives unless
-    // forced local. GitHub Windows runners hit this path via Git Bash tar.
-    return ['--force-local', ...args];
+function readTarOctal(buffer: Buffer, start: number, length: number): number {
+  const text = readTarString(buffer, start, length).trim();
+  return text ? Number.parseInt(text, 8) : 0;
+}
+
+function isZeroBlock(buffer: Buffer, start: number): boolean {
+  for (let index = start; index < start + 512; index += 1) {
+    if (buffer[index] !== 0) return false;
   }
-  return args;
+  return true;
+}
+
+function strippedEntryParts(entryName: string): string[] | null {
+  const parts = entryName
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter((part) => part.length > 0 && part !== '.');
+
+  if (parts.some((part) => part === '..')) {
+    throw new Error(`unsafe path in Node.js headers archive: ${entryName}`);
+  }
+
+  const stripped = parts.slice(1);
+  return stripped.length > 0 ? stripped : null;
+}
+
+function destinationPath(rootDir: string, entryName: string): string | null {
+  const parts = strippedEntryParts(entryName);
+  if (!parts) return null;
+
+  const rootPath = path.resolve(rootDir);
+  const target = path.resolve(rootPath, ...parts);
+  const relative = path.relative(rootPath, target);
+  if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`unsafe path in Node.js headers archive: ${entryName}`);
+  }
+  return target;
+}
+
+function extractNodeHeadersTarball(tarball: string, destination: string): void {
+  const data = gunzipSync(fs.readFileSync(tarball));
+  let longName: string | undefined;
+
+  for (let offset = 0; offset + 512 <= data.length;) {
+    if (isZeroBlock(data, offset)) return;
+
+    const name = readTarString(data, offset, 100);
+    const size = readTarOctal(data, offset + 124, 12);
+    const type = readTarString(data, offset + 156, 1) || '0';
+    const prefix = readTarString(data, offset + 345, 155);
+    const entryName = longName || (prefix ? `${prefix}/${name}` : name);
+    longName = undefined;
+
+    const contentStart = offset + 512;
+    const contentEnd = contentStart + size;
+    const nextOffset = contentStart + Math.ceil(size / 512) * 512;
+
+    if (type === 'L') {
+      longName = data.toString('utf8', contentStart, contentEnd).replace(/\0.*$/s, '');
+      offset = nextOffset;
+      continue;
+    }
+    if (type === 'x' || type === 'g') {
+      offset = nextOffset;
+      continue;
+    }
+
+    const target = destinationPath(destination, entryName);
+    if (target) {
+      if (type === '5') {
+        fs.mkdirSync(target, { recursive: true });
+      } else if (type === '0' || type === '') {
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, data.subarray(contentStart, contentEnd));
+      } else {
+        throw new Error(`unsupported entry type in Node.js headers archive: ${type} ${entryName}`);
+      }
+    }
+
+    offset = nextOffset;
+  }
+
+  throw new Error(`invalid tar archive: ${tarball}`);
 }
 
 function ensureHeaders(version: string): string {
@@ -100,7 +162,7 @@ function ensureHeaders(version: string): string {
   const tmp = path.join(cacheRoot, `.extract-v${version}`);
   fs.rmSync(tmp, { recursive: true, force: true });
   fs.mkdirSync(tmp, { recursive: true });
-  run('tar', tarExtractArgs(tarball, tmp));
+  extractNodeHeadersTarball(tarball, tmp);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.renameSync(tmp, dir);
 

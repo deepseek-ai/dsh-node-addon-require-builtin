@@ -18,10 +18,6 @@ export function relativePathForLog(from: string, to: string): string {
   return toPortablePath(path.relative(from, to));
 }
 
-export function pathForCliArg(value: string): string {
-  return process.platform === 'win32' ? toPortablePath(value) : value;
-}
-
 export function writeSimpleGithubEnv(file: string, name: string, value: string): void {
   if (value.includes('\n') || value.includes('\r')) {
     throw new Error(`${name} contains a newline and cannot be written as a simple GitHub env value`);
