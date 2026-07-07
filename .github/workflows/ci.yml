@@ -63,7 +63,21 @@ jobs:
         run: pnpm config set script-shell "C:\Program Files\Git\bin\bash.exe"
 
       - name: Install
+        if: runner.os != 'Windows'
         run: pnpm install --frozen-lockfile
+
+      - name: Install dependencies without package install scripts
+        if: runner.os == 'Windows'
+        run: pnpm install --ignore-scripts --frozen-lockfile
+
+      - name: Build TypeScript entrypoints
+        run: pnpm build:ts
+
+      - name: Probe Windows install/runtime path
+        if: runner.os == 'Windows'
+        run: pnpm --dir packages/entry exec node ./scripts/install.js
+        env:
+          DSH_NODE_ADDON_INTERNAL_TRACE: 1
 
       - name: Typecheck
         run: pnpm typecheck

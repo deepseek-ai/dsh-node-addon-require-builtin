@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -13,7 +14,8 @@ const nodeInclude = path.join(
   'include',
   'node',
 );
-const outBin = path.join(root, 'build', 'getter_decoder_selftest');
+const outDir = path.join(root, 'build');
+const outBin = path.join(outDir, 'getter_decoder_selftest');
 
 const compiler = process.env.CXX || 'c++';
 const args = [
@@ -32,6 +34,8 @@ const args = [
   '-o',
   outBin,
 ];
+
+fs.mkdirSync(outDir, { recursive: true });
 
 const build = spawnSync(compiler, args, { cwd: root, stdio: 'inherit' });
 if (build.status !== 0) process.exit(build.status ?? 1);
