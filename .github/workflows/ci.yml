@@ -109,7 +109,8 @@ jobs:
         if: matrix.optional
         shell: bash
         run: |
-          eval "$(pnpm -s headers)"
+          pnpm -s headers > "$RUNNER_TEMP/node-headers.env"
+          source "$RUNNER_TEMP/node-headers.env"
           echo "NODE_JS_PUBLIC_INCLUDE_DIRS=$NODE_JS_PUBLIC_INCLUDE_DIRS" >> "$GITHUB_ENV"
 
       - name: Test current-platform optional package (nodeabi)

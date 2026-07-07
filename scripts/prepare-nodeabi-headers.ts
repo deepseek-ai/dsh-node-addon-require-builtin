@@ -51,6 +51,16 @@ function includeDirs(dir: string): string[] {
   return [path.join(dir, 'include', 'node')];
 }
 
+function tarExtractArgs(tarball: string, destination: string): string[] {
+  const args = ['-xzf', tarball, '-C', destination, '--strip-components=1'];
+  if (process.platform === 'win32') {
+    // GNU tar treats drive-letter paths like D:\... as remote archives unless
+    // forced local. GitHub Windows runners hit this path via Git Bash tar.
+    return ['--force-local', ...args];
+  }
+  return args;
+}
+
 function ensureHeaders(version: string): string {
   const dir = headersDir(version);
   if (fs.existsSync(path.join(dir, 'include', 'node', 'node.h'))) {
@@ -66,7 +76,7 @@ function ensureHeaders(version: string): string {
   const tmp = path.join(cacheRoot, `.extract-v${version}`);
   fs.rmSync(tmp, { recursive: true, force: true });
   fs.mkdirSync(tmp, { recursive: true });
-  run('tar', ['-xzf', tarball, '-C', tmp, '--strip-components=1']);
+  run('tar', tarExtractArgs(tarball, tmp));
   fs.rmSync(dir, { recursive: true, force: true });
   fs.renameSync(tmp, dir);
 
