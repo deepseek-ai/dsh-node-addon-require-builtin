@@ -43,8 +43,8 @@ function captureProbe(backend: string): ProbeSummary {
     encoding: 'utf8',
     env: {
       ...process.env,
-      DSH_NODE_ADDON_INTERNAL_BACKEND: backend,
-      DSH_NODE_ADDON_INTERNAL_DISABLE_OPTIONAL_PACKAGE: '1',
+      NARB_BACKEND: backend,
+      NARB_DISABLE_OPTIONAL_PACKAGE: '1',
     },
   });
   if (result.error) throw result.error;
@@ -61,10 +61,10 @@ if (!process.env.NODE_JS_PUBLIC_INCLUDE_DIRS) {
 }
 
 run(['--import', 'tsx', './scripts/build.ts'], {
-  DSH_NODE_ADDON_INTERNAL_BACKEND: 'napi',
+  NARB_BACKEND: 'napi',
 });
 run(['--import', 'tsx', './scripts/build.ts'], {
-  DSH_NODE_ADDON_INTERNAL_BACKEND: 'nodeabi',
+  NARB_BACKEND: 'nodeabi',
 });
 
 const napi = captureProbe('napi');

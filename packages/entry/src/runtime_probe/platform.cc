@@ -1,7 +1,7 @@
 #include "helper.h"
 #include "parser.h"
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
 Result<GetterPattern> ParseBuiltinModuleRequireGetterOffset(void* getter) {
 #if defined(__APPLE__) && defined(__aarch64__)
@@ -29,4 +29,4 @@ Result<GetterPattern> ParseBuiltinModuleRequireGetterOffset(void* getter) {
 #endif
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin

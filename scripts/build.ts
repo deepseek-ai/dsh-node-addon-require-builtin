@@ -9,7 +9,7 @@ import {
 
 const BACKEND_NAPI = 'napi';
 const BACKEND_NODEABI = 'nodeabi';
-const BINARY_NAME = 'internal_require.node';
+const BINARY_NAME = 'require_builtin.node';
 
 type NativeBackend = typeof BACKEND_NAPI | typeof BACKEND_NODEABI;
 
@@ -21,18 +21,18 @@ interface BuildTagOptions {
 const root = path.resolve(__dirname, '..');
 const packageRoot = path.join(root, 'packages', 'entry');
 const backend = normalizeBackend(
-  process.env.DSH_NODE_ADDON_INTERNAL_BACKEND,
+  process.env.NARB_BACKEND,
 );
 const napiVersion = process.env.NAPI_VERSION || '9';
 const buildOptions: BuildTagOptions = backend === BACKEND_NAPI
   ? { napiVersion }
   : { nodeModuleVersion: process.versions.modules };
-const outputMode = process.env.DSH_NODE_ADDON_INTERNAL_BUILD_OUTPUT || 'build';
+const outputMode = process.env.NARB_BUILD_OUTPUT || 'build';
 const commonSources = [
   path.join(packageRoot, 'src', 'node_api_addon.cc'),
   path.join(packageRoot, 'src', 'debug_trace.cc'),
   path.join(packageRoot, 'src', 'native_types.cc'),
-  path.join(packageRoot, 'src', 'internal_require_probe.cc'),
+  path.join(packageRoot, 'src', 'require_builtin_probe.cc'),
   path.join(packageRoot, 'src', 'runtime_context', 'helper.cc'),
   path.join(packageRoot, 'src', 'runtime_context', 'platform.cc'),
   path.join(packageRoot, 'src', 'runtime_context', 'darwin_arm64.cc'),
@@ -82,7 +82,7 @@ function buildOutputPath(): string {
     );
   }
 
-  throw new Error(`unsupported DSH_NODE_ADDON_INTERNAL_BUILD_OUTPUT: ${outputMode}`);
+  throw new Error(`unsupported NARB_BUILD_OUTPUT: ${outputMode}`);
 }
 
 const output = buildOutputPath();
@@ -189,9 +189,9 @@ function commonArgs(includeDir: string): string[] {
     '-fno-exceptions',
     '-fvisibility=hidden',
     '-DNAPI_VERSION=' + napiVersion,
-    '-DINTERNAL_REQUIRE_BACKEND=' + backendMacro(backend),
+    '-DNARB_BACKEND=' + backendMacro(backend),
     '-DNODE_ADDON_API_DISABLE_CPP_EXCEPTIONS',
-    '-DNODE_GYP_MODULE_NAME=internal_require',
+    '-DNODE_GYP_MODULE_NAME=require_builtin',
     ...nativeIncludeArgs(includeDir),
     '-I',
     nodeAddonApiIncludeDir(),
@@ -248,10 +248,10 @@ function buildWithNodeGyp(): void {
     stdio: 'inherit',
     env: {
       ...process.env,
-      DSH_NODE_ADDON_INTERNAL_BACKEND: backend,
+      NARB_BACKEND: backend,
       GYP_DEFINES: [
         process.env.GYP_DEFINES,
-        `internal_require_backend=${backend}`,
+        `narb_backend=${backend}`,
         'enable_lto=false',
         'enable_thin_lto=false',
         'lto_jobs=',

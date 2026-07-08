@@ -1,11 +1,10 @@
-#ifndef INTERNAL_REQUIRE_RUNTIME_PROBE_PLATFORM_H_
-#define INTERNAL_REQUIRE_RUNTIME_PROBE_PLATFORM_H_
+#pragma once
 
 #include "../runtime_compat.h"
 
 #include <string_view>
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
 Result<void*> ReadRealmVptr(void* realm);
 
@@ -21,6 +20,4 @@ Result<GetterSymbol> ResolvePlatformBuiltinModuleRequireGetterFallback(
 Result<ImageValidation> ValidatePlatformRuntimeImagePointers(void* getter,
                                                              void* realm_vptr);
 
-}  // namespace internal_require
-
-#endif  // INTERNAL_REQUIRE_RUNTIME_PROBE_PLATFORM_H_
+}  // namespace esplus::node::require_builtin

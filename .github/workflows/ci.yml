@@ -67,7 +67,7 @@ jobs:
         if: runner.os == 'Windows'
         run: pnpm --dir packages/entry exec node ./scripts/install.js
         env:
-          DSH_NODE_ADDON_INTERNAL_TRACE: 1
+          NARB_TRACE: 1
 
       - name: Typecheck
         run: pnpm typecheck
@@ -119,7 +119,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.matrix.outputs.hmr) }}
     env:
-      DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD: 1
+      NARB_DISABLE_LOCAL_BUILD: 1
     steps:
       - uses: actions/checkout@v4
 
@@ -153,9 +153,9 @@ jobs:
       - name: Run HMR comparison (N-API prebuild)
         run: node hmr-comparison/dist/runner/index.mjs
         env:
-          DSH_NODE_ADDON_INTERNAL_BACKEND: napi
+          NARB_BACKEND: napi
 
       - name: Run HMR comparison (nodeabi prebuild)
         run: node hmr-comparison/dist/runner/index.mjs
         env:
-          DSH_NODE_ADDON_INTERNAL_BACKEND: nodeabi
+          NARB_BACKEND: nodeabi

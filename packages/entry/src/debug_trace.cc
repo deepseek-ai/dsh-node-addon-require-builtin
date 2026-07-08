@@ -5,10 +5,10 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 namespace {
 
-constexpr const char* kTraceEnvVar = "DSH_NODE_ADDON_INTERNAL_TRACE";
+constexpr const char* kTraceEnvVar = "NARB_TRACE";
 constexpr const char* kTracePrefix = "[dsh-probe] ";
 
 }  // namespace
@@ -53,4 +53,4 @@ void DebugTraceBytes(const char* label, const void* data, size_t length) {
   DebugTrace("%s bytes: %s", label, hex);
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin

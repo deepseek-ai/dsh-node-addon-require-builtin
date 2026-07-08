@@ -2,11 +2,11 @@
 
 #include "getter_decoder.h"
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
 Result<GetterPattern> ParseWin32Arm64BuiltinModuleRequireGetterOffset(
     void* getter) {
   return MatchArm64Win64FieldGetter(getter, "win32-arm64");
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin

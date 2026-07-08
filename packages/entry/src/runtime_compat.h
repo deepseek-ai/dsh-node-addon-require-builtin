@@ -1,9 +1,8 @@
-#ifndef INTERNAL_REQUIRE_RUNTIME_COMPAT_H_
-#define INTERNAL_REQUIRE_RUNTIME_COMPAT_H_
+#pragma once
 
 #include "native_types.h"
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
 struct RuntimeContext {
   void* isolate_ptr = nullptr;
@@ -54,6 +53,4 @@ struct RuntimeRequireBuiltin {
 // symbols, layouts, or handle representations do not match the current process.
 Result<RuntimeRequireBuiltin> ProbeRuntimeRequireBuiltin(napi_env env);
 
-}  // namespace internal_require
-
-#endif  // INTERNAL_REQUIRE_RUNTIME_COMPAT_H_
+}  // namespace esplus::node::require_builtin

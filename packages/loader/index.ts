@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const NAPI_VERSION = '9';
-const BINARY_NAME = 'internal_require.node';
+const BINARY_NAME = 'require_builtin.node';
 const BACKEND_AUTO = 'auto';
 const BACKEND_NAPI = 'napi';
 const BACKEND_NODEABI = 'nodeabi';
@@ -290,7 +290,7 @@ export function loadPrebuild(
 ): NativeBinding {
   const prebuilds = options.prebuilds || require(path.join(packageDir, 'prebuilds.json')) as PrebuildsManifest;
   const backendPreference = normalizeBackend(
-    options.backend || process.env.DSH_NODE_ADDON_INTERNAL_BACKEND,
+    options.backend || process.env.NARB_BACKEND,
   );
   const candidates = prebuildCandidateBinaries(prebuilds, backendPreference);
   const attempts: Attempt[] = [];
@@ -410,11 +410,11 @@ export function loadEntry(options: LoadEntryOptions): LoadedBinding {
   const packageDir = options.packageDir;
   const packagePrefix = options.packagePrefix;
   const backendPreference = normalizeBackend(
-    options.backend || process.env.DSH_NODE_ADDON_INTERNAL_BACKEND,
+    options.backend || process.env.NARB_BACKEND,
   );
   const attempts: Attempt[] = [];
 
-  if (process.env.DSH_NODE_ADDON_INTERNAL_DISABLE_OPTIONAL_PACKAGE !== '1') {
+  if (process.env.NARB_DISABLE_OPTIONAL_PACKAGE !== '1') {
     for (const candidate of optionalPackageCandidates(packageDir, packagePrefix)) {
       const result = tryRequirePackage(candidate);
       if (result.binding && result.path) {
@@ -433,7 +433,7 @@ export function loadEntry(options: LoadEntryOptions): LoadedBinding {
     }
   }
 
-  if (process.env.DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD === '1') {
+  if (process.env.NARB_DISABLE_LOCAL_BUILD === '1') {
     throw noUsableBindingError(packagePrefix, backendPreference, attempts);
   }
 

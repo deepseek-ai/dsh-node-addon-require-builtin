@@ -1,4 +1,4 @@
-# node-addon-require-builtin
+# @esplus/node-addon-require-builtin
 
 Node-API addon that obtains Node's internal `requireBuiltin()`
 without starting Node with `--expose-internals`.
@@ -11,21 +11,21 @@ expected invariants, the addon must fail closed instead of guessing offsets.
 ## Install
 
 ```sh
-npm install node-addon-require-builtin
+npm install @esplus/node-addon-require-builtin
 ```
 
 Published packages use a main package plus platform optional packages:
 
 ```text
-node-addon-require-builtin
-node-addon-require-builtin-darwin-arm64
-node-addon-require-builtin-darwin-x64
-node-addon-require-builtin-linux-arm64-gnu
-node-addon-require-builtin-linux-x64-gnu
-node-addon-require-builtin-win32-arm64-msvc
-node-addon-require-builtin-win32-ia32-msvc
-node-addon-require-builtin-win32-x64-msvc
-node-addon-require-builtin-loader
+@esplus/node-addon-require-builtin
+@esplus/node-addon-require-builtin-loader
+@esplus/node-addon-require-builtin-darwin-arm64
+@esplus/node-addon-require-builtin-darwin-x64
+@esplus/node-addon-require-builtin-linux-arm64-gnu
+@esplus/node-addon-require-builtin-linux-x64-gnu
+@esplus/node-addon-require-builtin-win32-arm64-msvc
+@esplus/node-addon-require-builtin-win32-ia32-msvc
+@esplus/node-addon-require-builtin-win32-x64-msvc
 ```
 
 The main package first tries the current platform optional package, then falls
@@ -34,7 +34,7 @@ back to a local `node-gyp` build under `packages/entry/build/`.
 ## Usage
 
 ```js
-const internalAddon = require('node-addon-require-builtin');
+const internalAddon = require('@esplus/node-addon-require-builtin');
 
 const esmLoader = internalAddon.requireBuiltin('internal/modules/esm/loader');
 const cascadedLoader = esmLoader.getOrInitializeCascadedLoader();
@@ -68,8 +68,8 @@ The native implementation has two backend dimensions:
 
 The loader defaults to `auto`: it tries a matching `nodeabi` binary when the
 platform package contains one for `process.versions.modules`, then falls back to
-`napi-v9`. Set `DSH_NODE_ADDON_INTERNAL_BACKEND=napi` or
-`DSH_NODE_ADDON_INTERNAL_BACKEND=nodeabi` to force one backend.
+`napi-v9`. Set `NARB_BACKEND=napi` or `NARB_BACKEND=nodeabi` to force one
+backend.
 
 ## Development
 

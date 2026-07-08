@@ -1,6 +1,6 @@
 #include "helper.h"
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 namespace {
 
 Result<CurrentContextRead> UnsupportedContextReader(const char* message) {
@@ -46,4 +46,4 @@ Result<CurrentContextRead> ReadCurrentV8Context(
 #endif
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin

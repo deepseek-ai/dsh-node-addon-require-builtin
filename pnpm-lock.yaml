@@ -20,19 +20,19 @@ importers:
 
   packages/darwin-arm64:
     dependencies:
-      'node-addon-require-builtin-loader':
+      '@esplus/node-addon-require-builtin-loader':
         specifier: workspace:*
         version: link:../loader
 
   packages/darwin-x64:
     dependencies:
-      'node-addon-require-builtin-loader':
+      '@esplus/node-addon-require-builtin-loader':
         specifier: workspace:*
         version: link:../loader
 
   packages/entry:
     dependencies:
-      'node-addon-require-builtin-loader':
+      '@esplus/node-addon-require-builtin-loader':
         specifier: workspace:*
         version: link:../loader
       node-addon-api:
@@ -42,37 +42,37 @@ importers:
         specifier: 12.4.0
         version: 12.4.0
     optionalDependencies:
-      'node-addon-require-builtin-darwin-arm64':
+      '@esplus/node-addon-require-builtin-darwin-arm64':
         specifier: workspace:*
         version: link:../darwin-arm64
-      'node-addon-require-builtin-darwin-x64':
+      '@esplus/node-addon-require-builtin-darwin-x64':
         specifier: workspace:*
         version: link:../darwin-x64
-      'node-addon-require-builtin-linux-arm64-gnu':
+      '@esplus/node-addon-require-builtin-linux-arm64-gnu':
         specifier: workspace:*
         version: link:../linux-arm64-gnu
-      'node-addon-require-builtin-linux-x64-gnu':
+      '@esplus/node-addon-require-builtin-linux-x64-gnu':
         specifier: workspace:*
         version: link:../linux-x64-gnu
-      'node-addon-require-builtin-win32-arm64-msvc':
+      '@esplus/node-addon-require-builtin-win32-arm64-msvc':
         specifier: workspace:*
         version: link:../win32-arm64-msvc
-      'node-addon-require-builtin-win32-ia32-msvc':
+      '@esplus/node-addon-require-builtin-win32-ia32-msvc':
         specifier: workspace:*
         version: link:../win32-ia32-msvc
-      'node-addon-require-builtin-win32-x64-msvc':
+      '@esplus/node-addon-require-builtin-win32-x64-msvc':
         specifier: workspace:*
         version: link:../win32-x64-msvc
 
   packages/linux-arm64-gnu:
     dependencies:
-      'node-addon-require-builtin-loader':
+      '@esplus/node-addon-require-builtin-loader':
         specifier: workspace:*
         version: link:../loader
 
   packages/linux-x64-gnu:
     dependencies:
-      'node-addon-require-builtin-loader':
+      '@esplus/node-addon-require-builtin-loader':
         specifier: workspace:*
         version: link:../loader
 
@@ -80,19 +80,19 @@ importers:
 
   packages/win32-arm64-msvc:
     dependencies:
-      'node-addon-require-builtin-loader':
+      '@esplus/node-addon-require-builtin-loader':
         specifier: workspace:*
         version: link:../loader
 
   packages/win32-ia32-msvc:
     dependencies:
-      'node-addon-require-builtin-loader':
+      '@esplus/node-addon-require-builtin-loader':
         specifier: workspace:*
         version: link:../loader
 
   packages/win32-x64-msvc:
     dependencies:
-      'node-addon-require-builtin-loader':
+      '@esplus/node-addon-require-builtin-loader':
         specifier: workspace:*
         version: link:../loader
 

@@ -5,7 +5,7 @@
 #include <cstring>
 #include <string>
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 namespace {
 
 // A field getter can only reference the object a handful of words into itself.
@@ -635,4 +635,4 @@ Result<GetterPattern> MatchArm64Win64FieldGetter(void* getter,
   return Failure("win32-arm64 getter did not terminate with ret");
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin

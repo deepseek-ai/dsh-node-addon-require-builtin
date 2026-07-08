@@ -1,6 +1,6 @@
 # Architecture
 
-`node-addon-require-builtin` is a Node native addon that obtains the bootstrap
+`@esplus/node-addon-require-builtin` is a Node native addon that obtains the bootstrap
 `requireBuiltin()` function from the current Node `Realm` and exposes a small JS
 API around it.
 
@@ -31,14 +31,14 @@ Selection order:
 1. Resolve the current platform suffix, such as `darwin-arm64` or
    `linux-x64-gnu`.
 2. Try the matching platform optional package unless
-   `DSH_NODE_ADDON_INTERNAL_DISABLE_OPTIONAL_PACKAGE=1`.
+   `NARB_DISABLE_OPTIONAL_PACKAGE=1`.
 3. In the optional package, try a matching `nodeabi` binary first when the
    package manifest includes the current `process.versions.modules`.
 4. Fall back to `napi-v9`.
 5. If no optional package binary works, try the local build output unless
-   `DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD=1`.
+   `NARB_DISABLE_LOCAL_BUILD=1`.
 
-`DSH_NODE_ADDON_INTERNAL_BACKEND=napi|nodeabi|auto` controls backend preference.
+`NARB_BACKEND=napi|nodeabi|auto` controls backend preference.
 `auto` is the default.
 
 ## Native API Layer
@@ -55,7 +55,7 @@ native and loader metadata. It does not expose `probe()` directly.
 
 ## Probe Decision Flow
 
-`packages/entry/src/internal_require_probe.cc` owns the backend-independent
+`packages/entry/src/require_builtin_probe.cc` owns the backend-independent
 control flow:
 
 1. Ask the selected runtime adapter for a candidate `requireBuiltin` value.
@@ -146,7 +146,7 @@ implemented and CI-validated.
 Local development output:
 
 ```text
-packages/entry/build/<backend>/<abi>-<platform>/internal_require.node
+packages/entry/build/<backend>/<abi>-<platform>/require_builtin.node
 ```
 
 Platform prebuild output:
@@ -163,3 +163,6 @@ packages/darwin-arm64/prebuilt/darwin-arm64-nodeabi-v137.node
 ```
 
 Generated binaries are ignored by git and produced by local release or CI jobs.
+
+See [naming.md](naming.md) for project-wide environment variable, C++ symbol,
+native binary, and source-file naming conventions.

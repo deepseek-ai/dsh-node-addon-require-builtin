@@ -39,9 +39,9 @@ const {
   optionalBinaryRelativePath,
   optionalPackageName: resolveOptionalPackageName,
   platformPackageSuffix,
-} = require('node-addon-require-builtin-loader') as LoaderApi;
+} = require('@esplus/node-addon-require-builtin-loader') as LoaderApi;
 
-const PACKAGE_PREFIX = 'node-addon-require-builtin';
+const PACKAGE_PREFIX = '@esplus/node-addon-require-builtin';
 const packageDir = path.resolve(__dirname, '..');
 const loadedBinding = loadEntry({
   packageDir,

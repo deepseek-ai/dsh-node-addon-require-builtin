@@ -1,10 +1,10 @@
 #include <napi.h>
 #include <node_api.h>
 
-#include "internal_require_probe.h"
+#include "require_builtin_probe.h"
 #include "native_types.h"
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 namespace {
 
 void SetString(Napi::Env env,
@@ -58,9 +58,9 @@ Napi::Object DiagnosticsObject(Napi::Env env, const Diagnostics& diag) {
   return object;
 }
 
-void ThrowUnsupported(Napi::Env env, const InternalRequireProbe& probe) {
+void ThrowUnsupported(Napi::Env env, const RequireBuiltinProbe& probe) {
   const ProbeState& state = probe.state();
-  std::string message = "node-addon-require-builtin unsupported: ";
+  std::string message = "@esplus/node-addon-require-builtin unsupported: ";
   message.append(ProbeStatusString(state.status));
   if (!state.error.empty()) {
     message += " (" + state.error + ")";
@@ -81,7 +81,7 @@ Napi::Value RequireBuiltin(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
 
-  InternalRequireProbe probe(env, info[0], true);
+  RequireBuiltinProbe probe(env, info[0], true);
   probe.Run();
   const ProbeState& state = probe.state();
   if (state.status != ProbeStatus::kSupported || state.target_exports == nullptr) {
@@ -122,10 +122,10 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
 }
 
 }  // namespace
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
-  return internal_require::Init(env, exports);
+  return esplus::node::require_builtin::Init(env, exports);
 }
 
-NODE_API_MODULE(internal_require, Init)
+NODE_API_MODULE(require_builtin, Init)

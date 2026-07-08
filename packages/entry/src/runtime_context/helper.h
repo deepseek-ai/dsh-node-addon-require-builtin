@@ -1,18 +1,17 @@
-#ifndef INTERNAL_REQUIRE_RUNTIME_CONTEXT_HELPER_H_
-#define INTERNAL_REQUIRE_RUNTIME_CONTEXT_HELPER_H_
+#pragma once
 
 #include "../runtime_compat.h"
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
 // A v8::Context exposes the realm in a fixed embedder slot. Any field count at
 // or below that slot cannot hold a realm; an implausibly large one means the
 // pointer is not a real context. Shared by every platform's context reader.
 constexpr uint32_t kMaxPlausibleEmbedderFields = 4096;
 
-using GetCurrentContextFn = void* (INTERNAL_REQUIRE_MEMBER_ABI*)(void*);
+using GetCurrentContextFn = void* (NARB_MEMBER_ABI*)(void*);
 using GetNumberOfEmbedderDataFieldsFn =
-    uint32_t (INTERNAL_REQUIRE_MEMBER_ABI*)(void*);
+    uint32_t (NARB_MEMBER_ABI*)(void*);
 
 struct CurrentContextSymbols {
   void* get_current_context = nullptr;
@@ -63,6 +62,4 @@ Result<CurrentContextRead> ReadWin32Ia32CurrentV8Context(
     void* isolate,
     const CurrentContextSymbols& symbols);
 
-}  // namespace internal_require
-
-#endif  // INTERNAL_REQUIRE_RUNTIME_CONTEXT_HELPER_H_
+}  // namespace esplus::node::require_builtin

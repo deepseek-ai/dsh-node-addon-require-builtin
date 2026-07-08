@@ -4,7 +4,7 @@
 
 #include <cstring>
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 namespace {
 
 constexpr uintptr_t kMinPlausiblePointer = 0x10000;
@@ -15,9 +15,9 @@ constexpr std::string_view kSymBuiltinModuleRequireGetter =
     "_ZNK4node14PrincipalRealm22builtin_module_requireEv";
 
 using BuiltinModuleRequireGetterFn =
-    napi_value (INTERNAL_REQUIRE_MEMBER_ABI*)(void*);
+    napi_value (NARB_MEMBER_ABI*)(void*);
 using BuiltinModuleRequireGetterSretFn =
-    void (INTERNAL_REQUIRE_MEMBER_ABI*)(void*, void*);
+    void (NARB_MEMBER_ABI*)(void*, void*);
 
 }  // namespace
 
@@ -146,4 +146,4 @@ Result<napi_value> ReadAndValidateRequireBuiltinHandle(napi_env env,
   return Result<napi_value>::Ok(candidate_from_getter);
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin

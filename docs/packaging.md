@@ -6,15 +6,15 @@ Rollup: one JS entry package plus platform optional packages.
 ## Published Packages
 
 ```text
-node-addon-require-builtin
-node-addon-require-builtin-loader
-node-addon-require-builtin-darwin-arm64
-node-addon-require-builtin-darwin-x64
-node-addon-require-builtin-linux-arm64-gnu
-node-addon-require-builtin-linux-x64-gnu
-node-addon-require-builtin-win32-arm64-msvc
-node-addon-require-builtin-win32-ia32-msvc
-node-addon-require-builtin-win32-x64-msvc
+@esplus/node-addon-require-builtin
+@esplus/node-addon-require-builtin-loader
+@esplus/node-addon-require-builtin-darwin-arm64
+@esplus/node-addon-require-builtin-darwin-x64
+@esplus/node-addon-require-builtin-linux-arm64-gnu
+@esplus/node-addon-require-builtin-linux-x64-gnu
+@esplus/node-addon-require-builtin-win32-arm64-msvc
+@esplus/node-addon-require-builtin-win32-ia32-msvc
+@esplus/node-addon-require-builtin-win32-x64-msvc
 ```
 
 Unsupported platforms are intentionally absent from `optionalDependencies`.
@@ -49,12 +49,14 @@ When changing the matrix, update package metadata, all matching
 `prebuilds.json` files, the lockfile, and support/release docs in the same
 change.
 
+Project-wide naming conventions are documented in [naming.md](naming.md).
+
 ## Runtime Selection
 
 The main package loader:
 
 1. Computes the platform suffix.
-2. Loads `node-addon-require-builtin-<platform>` when installed.
+2. Loads `@esplus/node-addon-require-builtin-<platform>` when installed.
 3. Reads the platform package `prebuilds.json`.
 4. Tries a matching `nodeabi` binary first in `auto` mode.
 5. Falls back to `napi-v9`.

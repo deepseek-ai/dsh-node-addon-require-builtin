@@ -1,7 +1,7 @@
 {
-  "name": "node-addon-require-builtin-linux-arm64-gnu",
+  "name": "@esplus/node-addon-require-builtin-linux-arm64-gnu",
   "version": "0.0.1",
-  "description": "Prebuilt linux-arm64-gnu native addon package for node-addon-require-builtin.",
+  "description": "Prebuilt linux-arm64-gnu native addon package for @esplus/node-addon-require-builtin.",
   "main": "./index.js",
   "publishConfig": {
     "access": "public"
@@ -22,7 +22,7 @@
     "prebuilt/"
   ],
   "dependencies": {
-    "node-addon-require-builtin-loader": "workspace:*"
+    "@esplus/node-addon-require-builtin-loader": "workspace:*"
   },
   "license": "MIT",
   "repository": {

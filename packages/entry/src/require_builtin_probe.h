@@ -1,20 +1,19 @@
-#ifndef INTERNAL_REQUIRE_PROBE_H_
-#define INTERNAL_REQUIRE_PROBE_H_
+#pragma once
 
 #include "native_types.h"
 
 #include <napi.h>
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
 enum class ProbeOutcome {
   kContinue,
   kPartial,
 };
 
-class InternalRequireProbe {
+class RequireBuiltinProbe {
  public:
-  InternalRequireProbe(Napi::Env env, Napi::Value target, bool load_target);
+  RequireBuiltinProbe(Napi::Env env, Napi::Value target, bool load_target);
 
   bool Run();
   const ProbeState& state() const { return state_; }
@@ -41,6 +40,4 @@ class InternalRequireProbe {
 
 Napi::Value CallRequireBuiltin(Napi::Function require_builtin, Napi::String id);
 
-}  // namespace internal_require
-
-#endif  // INTERNAL_REQUIRE_PROBE_H_
+}  // namespace esplus::node::require_builtin

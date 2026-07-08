@@ -28,7 +28,7 @@ const args = [
   '-I',
   path.join(packageRoot, 'src'),
   '-DNAPI_VERSION=9',
-  '-DINTERNAL_REQUIRE_BACKEND=1',
+  '-DNARB_BACKEND=1',
   path.join(packageRoot, 'src', 'runtime_probe', 'getter_decoder.cc'),
   path.join(root, 'test', 'getter_decoder_selftest.cc'),
   '-o',
