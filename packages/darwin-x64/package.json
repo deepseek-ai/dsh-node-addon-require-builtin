@@ -4,7 +4,7 @@
   "description": "Prebuilt darwin-x64 native addon package for @esplus/node-addon-require-builtin.",
   "main": "./index.js",
   "publishConfig": {
-    "access": "public"
+    "access": "restricted"
   },
   "os": [
     "darwin"

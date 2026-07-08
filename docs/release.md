@@ -81,7 +81,7 @@ environment secret.
 Manual local publish fallback:
 
 ```sh
-pnpm -r publish --access public --no-git-checks
+pnpm -r publish --access restricted --no-git-checks
 ```
 
 Do not commit `.npmrc` files with tokens or registry overrides.
