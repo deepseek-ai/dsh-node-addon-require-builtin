@@ -52,13 +52,13 @@ delimiter.
 
 ## Environment Variables
 
-- `DSH_NODE_ADDON_INTERNAL_BACKEND=auto|napi|nodeabi`: backend preference.
-- `DSH_NODE_ADDON_INTERNAL_DISABLE_OPTIONAL_PACKAGE=1`: skip optional packages.
-- `DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD=1`: skip local build fallback.
-- `DSH_NODE_ADDON_INTERNAL_EXPECTED_BACKEND=napi|nodeabi`: test assertion helper.
+- `NARB_BACKEND=auto|napi|nodeabi`: backend preference.
+- `NARB_DISABLE_OPTIONAL_PACKAGE=1`: skip optional packages.
+- `NARB_DISABLE_LOCAL_BUILD=1`: skip local build fallback.
+- `NARB_EXPECTED_BACKEND=napi|nodeabi`: test assertion helper.
 - `NODE_JS_PUBLIC_INCLUDE_DIRS=...`: official Node.js public header include path
   for `nodeabi` builds.
-- `DSH_NODE_ADDON_INTERNAL_HEADERS_CACHE=...`: header helper cache directory.
+- `NARB_HEADERS_CACHE=...`: header helper cache directory.
 - `NODE_DIST_BASE_URL=...`: alternate Node release mirror.
 
 ## Generated Files

@@ -6,15 +6,15 @@ Rollup: one JS entry package plus platform optional packages.
 ## Published Packages
 
 ```text
-node-addon-require-builtin
-node-addon-require-builtin-loader
-node-addon-require-builtin-darwin-arm64
-node-addon-require-builtin-darwin-x64
-node-addon-require-builtin-linux-arm64-gnu
-node-addon-require-builtin-linux-x64-gnu
-node-addon-require-builtin-win32-arm64-msvc
-node-addon-require-builtin-win32-ia32-msvc
-node-addon-require-builtin-win32-x64-msvc
+@esplus/node-addon-require-builtin
+@esplus/node-addon-require-builtin-loader
+@esplus/node-addon-require-builtin-darwin-arm64
+@esplus/node-addon-require-builtin-darwin-x64
+@esplus/node-addon-require-builtin-linux-arm64-gnu
+@esplus/node-addon-require-builtin-linux-x64-gnu
+@esplus/node-addon-require-builtin-win32-arm64-msvc
+@esplus/node-addon-require-builtin-win32-ia32-msvc
+@esplus/node-addon-require-builtin-win32-x64-msvc
 ```
 
 Unsupported platforms are intentionally absent from `optionalDependencies`.
@@ -54,7 +54,7 @@ change.
 The main package loader:
 
 1. Computes the platform suffix.
-2. Loads `node-addon-require-builtin-<platform>` when installed.
+2. Loads `@esplus/node-addon-require-builtin-<platform>` when installed.
 3. Reads the platform package `prebuilds.json`.
 4. Tries a matching `nodeabi` binary first in `auto` mode.
 5. Falls back to `napi-v9`.
@@ -92,3 +92,59 @@ Generated `.node` files are ignored by git. Release automation should build
 them on the matching platform before publishing. Normal CI artifacts are
 verification outputs only; release publishing rebuilds the full `prebuilds.json`
 matrix from the release tag and publishes the assembled tarballs.
+
+## Naming Conventions
+
+The public npm package family uses the `@esplus` scope and the
+`node-addon-require-builtin` package prefix. Keep package names aligned with the
+runtime loader prefix:
+
+```text
+@esplus/node-addon-require-builtin
+@esplus/node-addon-require-builtin-loader
+@esplus/node-addon-require-builtin-<platform>
+```
+
+Runtime environment variables use the short project prefix `NARB_`, standing for
+Node Addon Require Builtin:
+
+```text
+NARB_BACKEND
+NARB_BUILD_OUTPUT
+NARB_DISABLE_OPTIONAL_PACKAGE
+NARB_DISABLE_LOCAL_BUILD
+NARB_EXPECTED_BACKEND
+NARB_HEADERS_CACHE
+NARB_TRACE
+```
+
+C/C++ preprocessor macros use the same `NARB_` prefix:
+
+```cpp
+NARB_BACKEND
+NARB_BACKEND_NAPI
+NARB_BACKEND_NODEABI
+NARB_BACKEND_NODEABI_VERIFY
+NARB_MEMBER_ABI
+NARB_PRINTF_FORMAT
+```
+
+C++ headers should use `#pragma once` instead of include guards.
+
+C++ implementation symbols live under the organization and feature namespace:
+
+```cpp
+namespace esplus::node::require_builtin {
+}
+```
+
+The native addon binary and node-gyp target are named after the public capability,
+not the probing implementation:
+
+```text
+require_builtin.node
+NODE_API_MODULE(require_builtin, Init)
+```
+
+Probe source files use `require_builtin_probe.*`. Avoid the old
+`internal_require_probe.*` naming in new code.
