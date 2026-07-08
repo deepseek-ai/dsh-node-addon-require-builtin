@@ -1,6 +1,6 @@
 {
   "name": "@esplus/node-addon-require-builtin-linux-arm64-gnu",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Prebuilt linux-arm64-gnu native addon package for @esplus/node-addon-require-builtin.",
   "main": "./index.js",
   "publishConfig": {
