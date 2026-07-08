@@ -62,6 +62,14 @@ Every native binding must return matching `backend` and `abi` values from
 `getNativeBindingInfo()`. Loading a binary with the wrong metadata is an error
 even if `dlopen` succeeds.
 
+The loader materializes the selected `.node` file into a content-addressed
+runtime cache before loading it. This avoids locking package-managed files under
+`node_modules` on platforms such as Windows. Set `NARB_NATIVE_CACHE_DIR` to
+override the cache location, or `NARB_DISABLE_NATIVE_CACHE=1` for debugging.
+The cache path includes package name, package version, platform, original file
+name, and content hash. If cache creation or hash verification fails, the loader
+falls back to the original package-managed path.
+
 ## Install Fallback
 
 The main package includes `scripts/install.js`. If no optional prebuild passes

@@ -51,6 +51,12 @@ The JS entry package re-exports only `requireBuiltin(moduleId)`,
 `isAllowedInternalId(moduleId)`, and a lazy `getBindingInfo()` wrapper around
 native and loader metadata. It does not expose `probe()` directly.
 
+Before a selected native binary is required, the shared loader copies it to a
+content-addressed runtime cache and loads that copy. This keeps package-managed
+`.node` files replaceable by package managers while the process is running. The
+cache path includes package version and content hash; if cache materialization
+fails, the loader falls back to the original binary path.
+
 ## Probe Decision Flow
 
 `packages/entry/src/require_builtin_probe.cc` owns the backend-independent

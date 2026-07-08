@@ -1,4 +1,6 @@
 import { addonInternalEsmAndRequirecacheStrategy } from './addoninternalesm-and-requirecache.mjs'
+import { addonInternalEsmNativecacheAndRequirecacheStrategy } from './addoninternalesm-nativecache-and-requirecache.mjs'
+import { addonInternalEsmNativecacheStrategy } from './addoninternalesm-nativecache.mjs'
 import { addonInternalEsmStrategy } from './addoninternalesm.mjs'
 import { hookversionAndRequirecacheStrategy } from './hookversion-and-requirecache.mjs'
 import { hookversionStrategy } from './hookversion.mjs'
@@ -21,6 +23,8 @@ export const strategies: Strategy[] = [
   internalesmAndRequirecacheStrategy,
   addonInternalEsmStrategy,
   addonInternalEsmAndRequirecacheStrategy,
+  addonInternalEsmNativecacheStrategy,
+  addonInternalEsmNativecacheAndRequirecacheStrategy,
   ...(isIsolatedVmAvailable() ? [isolatedvmStrategy] : []),
   vmsourcetextmoduleStrategy,
   vmSourceTextModuleNoRegisterModuleStrategy,

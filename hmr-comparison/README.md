@@ -174,6 +174,25 @@ Combines addon-based ESM `loadCache` eviction with CJS `require.cache` eviction.
 Expected: same behavior as `internalesm-and-requirecache`, without passing
 `--expose-internals`.
 
+### `addoninternalesm-nativecache`
+
+Uses the addon strategy, but monkey-patches native `.node` loading so the
+selected package binary is copied to a content-addressed temp cache before
+Node loads it:
+
+```ts
+source.node -> os.tmpdir()/narb-hmr-native-cache/<package>/<version>/<file>/<sha256>/<file>
+```
+
+Expected: same cache invalidation behavior as `addoninternalesm`, while
+modeling a runtime loading strategy that avoids locking the package-managed
+`.node` path on Windows.
+
+### `addoninternalesm-nativecache-and-requirecache`
+
+Combines native-cache addon loading, ESM `loadCache` eviction, and CJS
+`require.cache` eviction.
+
 ### `vmsourcetextmodule`
 
 Builds a fresh `vm.SourceTextModule` graph for ESM each time.

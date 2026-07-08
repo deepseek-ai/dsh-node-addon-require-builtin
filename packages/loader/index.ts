@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import crypto from 'node:crypto';
+import os from 'node:os';
 import path from 'node:path';
 
 const NAPI_VERSION = '9';
@@ -45,6 +47,7 @@ interface Attempt {
   source?: string;
   request?: string;
   path?: string;
+  loadPath?: string;
   backend?: string;
   abi?: string;
   message?: string;
@@ -77,6 +80,119 @@ function errorMessage(error: unknown): string | undefined {
   if (error instanceof Error) return error.message;
   if (error === undefined || error === null) return undefined;
   return String(error);
+}
+
+function nativeCacheEnabled(): boolean {
+  return process.env.NARB_DISABLE_NATIVE_CACHE !== '1';
+}
+
+function nativeCacheRoot(): string {
+  if (process.env.NARB_NATIVE_CACHE_DIR) {
+    return process.env.NARB_NATIVE_CACHE_DIR;
+  }
+
+  if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
+    return path.join(
+      process.env.LOCALAPPDATA,
+      'node-addon-require-builtin',
+      'native-cache',
+    );
+  }
+
+  const uid = typeof process.getuid === 'function' ? String(process.getuid()) : 'nouid';
+  return path.join(os.tmpdir(), `node-addon-require-builtin-${uid}`, 'native-cache');
+}
+
+function sha256(data: Buffer): string {
+  return crypto.createHash('sha256').update(data).digest('hex');
+}
+
+function packageVersionForNativeBinary(sourcePath: string): string {
+  let dir = path.dirname(sourcePath);
+  while (dir !== path.dirname(dir)) {
+    const packageJson = path.join(dir, 'package.json');
+    if (fs.existsSync(packageJson)) {
+      try {
+        const manifest = JSON.parse(fs.readFileSync(packageJson, 'utf8')) as { version?: unknown };
+        if (typeof manifest.version === 'string' && manifest.version.length > 0) {
+          return manifest.version;
+        }
+      } catch {
+        return 'unknown-version';
+      }
+    }
+    dir = path.dirname(dir);
+  }
+  return 'unknown-version';
+}
+
+function cachedFileMatches(destination: string, expectedDigest: string): boolean {
+  try {
+    return sha256(fs.readFileSync(destination)) === expectedDigest;
+  } catch {
+    return false;
+  }
+}
+
+function materializedNativeBinaryPath(sourcePath: string, packageName: string): string {
+  if (!nativeCacheEnabled()) return sourcePath;
+
+  try {
+    const data = fs.readFileSync(sourcePath);
+    const digest = sha256(data);
+    const filename = path.basename(sourcePath);
+    const destinationDir = path.join(
+      nativeCacheRoot(),
+      packageName.replace(/^@/, '').replace(/[\\/]/g, '-'),
+      packageVersionForNativeBinary(sourcePath),
+      platformPackageSuffix(),
+      filename,
+      digest,
+    );
+    const destination = path.join(destinationDir, filename);
+
+    if (fs.existsSync(destination)) {
+      return cachedFileMatches(destination, digest) ? destination : sourcePath;
+    }
+
+    fs.mkdirSync(destinationDir, { recursive: true });
+    const temp = path.join(
+      destinationDir,
+      `.${filename}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`,
+    );
+
+    fs.writeFileSync(temp, data, {
+      mode: fs.statSync(sourcePath).mode,
+    });
+
+    try {
+      // Atomic "create if absent" on filesystems that support hard links.
+      fs.linkSync(temp, destination);
+      fs.rmSync(temp, { force: true });
+      return destination;
+    } catch {
+      if (fs.existsSync(destination)) {
+        fs.rmSync(temp, { force: true });
+        return cachedFileMatches(destination, digest) ? destination : sourcePath;
+      }
+
+      // Some filesystems disallow hard links. Fall back to rename; if another
+      // process won the race, keep its copy after verifying the digest.
+      try {
+        fs.renameSync(temp, destination);
+        return cachedFileMatches(destination, digest) ? destination : sourcePath;
+      } catch {
+        if (fs.existsSync(destination)) {
+          fs.rmSync(temp, { force: true });
+          return cachedFileMatches(destination, digest) ? destination : sourcePath;
+        }
+        fs.rmSync(temp, { force: true });
+        return sourcePath;
+      }
+    }
+  } catch {
+    return sourcePath;
+  }
 }
 
 function normalizeBackend(value?: string): BackendPreference {
@@ -288,6 +404,7 @@ export function loadPrebuild(
   packageDir: string,
   options: LoadPrebuildOptions = {},
 ): NativeBinding {
+  const packageName = require(path.join(packageDir, 'package.json')).name as string;
   const prebuilds = options.prebuilds || require(path.join(packageDir, 'prebuilds.json')) as PrebuildsManifest;
   const backendPreference = normalizeBackend(
     options.backend || process.env.NARB_BACKEND,
@@ -305,11 +422,14 @@ export function loadPrebuild(
 
   for (const binary of candidates) {
     const bindingPath = path.join(packageDir, binary.path);
+    let loadPath = bindingPath;
     try {
-      return validatePrebuiltBinding(require(bindingPath) as NativeBinding, binary, bindingPath);
+      loadPath = materializedNativeBinaryPath(bindingPath, packageName);
+      return validatePrebuiltBinding(require(loadPath) as NativeBinding, binary, loadPath);
     } catch (error) {
       attempts.push({
         path: bindingPath,
+        loadPath,
         backend: binary.backend,
         abi: binary.abi,
         message: errorMessage(error),
@@ -340,6 +460,7 @@ function tryRequirePackage(candidate: { request: string; source: string }): {
 function tryRequireLocal(packageDir: string, binary: PrebuiltBinary): {
   binding: NativeBinding | null;
   path: string;
+  loadPath?: string;
   error: unknown;
 } {
   const file = path.join(
@@ -351,14 +472,15 @@ function tryRequireLocal(packageDir: string, binary: PrebuiltBinary): {
   );
 
   try {
-    const binding = require(file) as NativeBinding;
-    validateLoadedBinding(binding, file);
+    const loadPath = materializedNativeBinaryPath(file, '@esplus/node-addon-require-builtin-local');
+    const binding = require(loadPath) as NativeBinding;
+    validateLoadedBinding(binding, loadPath);
     Object.defineProperty(binding, 'bindingPath', {
-      value: file,
+      value: loadPath,
       enumerable: false,
       configurable: true,
     });
-    return { binding, path: file, error: null };
+    return { binding, path: file, loadPath, error: null };
   } catch (error) {
     return { binding: null, path: file, error };
   }
@@ -450,6 +572,7 @@ export function loadEntry(options: LoadEntryOptions): LoadedBinding {
     pushAttempt(attempts, {
       source: 'local-build',
       path: result.path,
+      loadPath: result.loadPath,
       backend: binary.backend,
       abi: binary.abi,
       error: result.error,
