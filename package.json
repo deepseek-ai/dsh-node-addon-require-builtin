@@ -26,6 +26,8 @@
     "test:all": "pnpm build:ts && tsx ./scripts/test-all.ts",
     "typecheck": "tsc --noEmit && tsc -b --dry",
     "gha:matrix": "node ./scripts/github-matrix.mjs",
+    "release:bump": "node ./scripts/bump-release.mjs",
+    "release:commit": "node ./scripts/commit-release.mjs",
     "release:assemble-prebuilds": "node ./scripts/assemble-prebuilds.mjs",
     "release:verify": "node ./scripts/verify-release.mjs",
     "release:pack": "node ./scripts/pack-release.mjs"

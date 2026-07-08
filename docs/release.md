@@ -5,11 +5,18 @@ policy.
 
 ## Versioning
 
-Update the version in:
+Use the release bump helper:
 
-- `packages/entry/package.json`
-- `packages/loader/package.json`
-- every published platform package `package.json`
+```sh
+pnpm release:bump patch
+pnpm release:bump minor
+pnpm release:bump major
+pnpm release:bump 0.1.0
+```
+
+The helper updates the root workspace package, `hmr-comparison`, and every
+published package under `packages/` to one version, refreshes the lockfile with
+`--ignore-scripts --lockfile-only`, and runs `release:verify`.
 
 Keep `workspace:*` dependencies in source. pnpm converts them to concrete
 versions during pack/publish.
@@ -18,6 +25,22 @@ Version bumps are normal source changes. Open a release PR or commit that
 updates package versions and the lockfile first, merge it, then create a
 matching `vX.Y.Z` tag from that commit. The publish workflow validates that the
 tag version matches every published package version.
+
+Example:
+
+```sh
+pnpm release:bump patch
+git add package.json hmr-comparison/package.json packages/*/package.json pnpm-lock.yaml
+git commit -m "Release 0.0.2"
+git tag v0.0.2
+```
+
+To bump, stage, and commit in one command:
+
+```sh
+pnpm release:commit patch
+git tag v0.0.2
+```
 
 ## Preflight
 
