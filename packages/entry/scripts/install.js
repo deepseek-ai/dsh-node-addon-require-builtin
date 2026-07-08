@@ -122,6 +122,12 @@ function optionalPrebuildWorks() {
   return result.status === 0;
 }
 
+function sourceFallbackAvailable() {
+  return fs.existsSync(path.join(root, 'binding.gyp')) &&
+    fs.existsSync(path.join(root, 'src', 'node_api_addon.cc')) &&
+    fs.existsSync(path.join(root, 'src', 'require_builtin_probe.cc'));
+}
+
 function isNodeExecutableScript(command) {
   const ext = path.extname(command).toLowerCase();
   return ext === '.js' || ext === '.cjs' || ext === '.mjs';
@@ -303,6 +309,16 @@ function main() {
     return;
   }
 
+  if (!sourceFallbackAvailable()) {
+    console.error(
+      '@esplus/node-addon-require-builtin: optional prebuild unavailable or unusable for this runtime',
+    );
+    console.error(
+      'Source fallback is disabled because native sources are not included in this package.',
+    );
+    process.exit(1);
+  }
+
   console.log('@esplus/node-addon-require-builtin: optional prebuild unavailable, building from source');
   runNodeGyp();
   copyNodeGypOutput();
@@ -314,6 +330,7 @@ module.exports = {
   nodeGypArgsFor,
   nodeGypDefines,
   nodeGypInvocationFor,
+  sourceFallbackAvailable,
   validationScript,
 };
 

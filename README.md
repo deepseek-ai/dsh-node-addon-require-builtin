@@ -28,8 +28,9 @@ Published packages use a main package plus platform optional packages:
 @esplus/node-addon-require-builtin-win32-x64-msvc
 ```
 
-The main package first tries the current platform optional package, then falls
-back to a local `node-gyp` build under `packages/entry/build/`.
+The main package requires a CI-validated current-platform optional package. If
+no compatible optional prebuild is available, installation fails closed instead
+of compiling an unvalidated local binary.
 
 ## Usage
 
@@ -81,8 +82,9 @@ pnpm test
 ```
 
 `pnpm build` builds TypeScript entrypoints and the N-API native addon into
-`packages/entry/build/`. It does not need separately downloaded public headers
-beyond the current runtime headers used by `node-gyp`/Node.
+`packages/entry/build/`. Source builds are a repository development and CI
+workflow only; published packages do not include native sources for install-time
+fallback builds.
 
 For backend comparison with official Node.js public headers:
 

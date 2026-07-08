@@ -60,7 +60,8 @@ The main package loader:
 3. Reads the platform package `prebuilds.json`.
 4. Tries a matching `nodeabi` binary first in `auto` mode.
 5. Falls back to `napi-v9`.
-6. Falls back to local build output if allowed.
+6. Fails closed when no optional prebuild works. Published packages do not
+   compile native sources at install time.
 
 Every native binding must return matching `backend` and `abi` values from
 `getNativeBindingInfo()`. Loading a binary with the wrong metadata is an error
@@ -69,8 +70,9 @@ even if `dlopen` succeeds.
 ## Install Fallback
 
 The main package includes `scripts/install.js`. If no optional prebuild passes
-validation, it runs `node-gyp rebuild`, copies the resulting N-API binary to the
-local build layout, and validates both default allowlisted modules.
+validation, installation fails with a clear unsupported message. Source builds
+are repository development and CI workflows only; private runtime packages do
+not publish native sources or run `node-gyp` at install time.
 
 Install validation calls `requireBuiltin('internal/modules/cjs/loader')` and
 `requireBuiltin('internal/modules/esm/loader')` through the package API because

@@ -17,18 +17,11 @@
   },
   "files": [
     "README.md",
-    "binding.gyp",
     "lib/",
     "!lib/.tsbuildinfo",
     "!lib/*.tsbuildinfo",
     "scripts/install.js",
-    "scripts/path-utils.js",
-    "src/*.cc",
-    "src/*.h",
-    "src/runtime_context/*.cc",
-    "src/runtime_context/*.h",
-    "src/runtime_probe/*.cc",
-    "src/runtime_probe/*.h"
+    "scripts/path-utils.js"
   ],
   "scripts": {
     "build:js": "tsc -b",
@@ -40,8 +33,7 @@
   "license": "MIT",
   "dependencies": {
     "@esplus/node-addon-require-builtin-loader": "workspace:*",
-    "node-addon-api": "^8.9.0",
-    "node-gyp": "12.4.0"
+    "node-addon-api": "^8.9.0"
   },
   "optionalDependencies": {
     "@esplus/node-addon-require-builtin-darwin-arm64": "workspace:*",

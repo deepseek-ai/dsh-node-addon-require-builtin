@@ -11,6 +11,9 @@ importers:
       '@types/node':
         specifier: ^24.10.0
         version: 24.13.2
+      node-gyp:
+        specifier: 12.4.0
+        version: 12.4.0
       tsx:
         specifier: ^4.20.6
         version: 4.23.0
@@ -38,9 +41,6 @@ importers:
       node-addon-api:
         specifier: ^8.9.0
         version: 8.9.0
-      node-gyp:
-        specifier: 12.4.0
-        version: 12.4.0
     optionalDependencies:
       '@esplus/node-addon-require-builtin-darwin-arm64':
         specifier: workspace:*

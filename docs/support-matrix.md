@@ -57,7 +57,7 @@ Not published yet:
 | `linux-x64-musl` | musl getter parser not implemented |
 
 Supported platform packages are exercised in CI with N-API and nodeabi optional
-prebuild builds, optional package loading, local source-build fallback, and
+prebuild builds, optional package loading, repository source builds, and
 require-parity against the genuine internals.
 
 Unsupported runtimes should fail closed with diagnostics rather than loading an

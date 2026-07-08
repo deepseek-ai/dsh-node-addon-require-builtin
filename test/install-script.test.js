@@ -8,6 +8,7 @@ const {
   nodeGypArgsFor,
   nodeGypDefines,
   nodeGypInvocationFor,
+  sourceFallbackAvailable,
   validationScript,
 } = require('../packages/entry/scripts/install.js');
 
@@ -176,6 +177,12 @@ assert.deepEqual(
   ],
 );
 
+assert.equal(
+  sourceFallbackAvailable(),
+  true,
+  'source fallback should be available from a repository checkout',
+);
+
 {
   const script = validationScript();
   assert.match(script, /error\.diagnostics/);
@@ -196,6 +203,8 @@ assert.deepEqual(
     path.resolve('packages/entry/scripts/install.js'),
     'utf8',
   );
+  assert.match(installScript, /sourceFallbackAvailable/);
   assert.match(installScript, /writeValidationOutput\(result\)/);
   assert.match(installScript, /local build validation: ok/);
+  assert.match(installScript, /Source fallback is disabled/);
 }

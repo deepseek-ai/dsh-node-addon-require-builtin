@@ -189,6 +189,32 @@ run(process.execPath, [entryInstallScript], {
   cwd: entryInstallDir,
   env: { CI: 'true' },
 });
+
+{
+  const optionalPackageDir = packageInstallDir(currentPlatformPackageName);
+  const disabledOptionalPackageDir = `${optionalPackageDir}.disabled`;
+  fs.renameSync(optionalPackageDir, disabledOptionalPackageDir);
+  try {
+    const result = spawnSync(process.execPath, [entryInstallScript], {
+      cwd: entryInstallDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        CI: 'true',
+      },
+    });
+    const output = `${result.stdout || ''}${result.stderr || ''}`;
+    if (result.status === 0) {
+      throw new Error('packed install succeeded without current platform optional package');
+    }
+    if (!output.includes('Source fallback is disabled')) {
+      throw new Error(`packed install did not fail closed with source fallback message:\n${output}`);
+    }
+  } finally {
+    fs.renameSync(disabledOptionalPackageDir, optionalPackageDir);
+  }
+}
+
 run(
   process.execPath,
   ['-e', `

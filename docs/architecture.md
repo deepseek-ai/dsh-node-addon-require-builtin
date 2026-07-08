@@ -35,8 +35,8 @@ Selection order:
 3. In the optional package, try a matching `nodeabi` binary first when the
    package manifest includes the current `process.versions.modules`.
 4. Fall back to `napi-v9`.
-5. If no optional package binary works, try the local build output unless
-   `NARB_DISABLE_LOCAL_BUILD=1`.
+5. If no optional package binary works, fail closed. Published packages do not
+   compile native sources at install time.
 
 `NARB_BACKEND=napi|nodeabi|auto` controls backend preference.
 `auto` is the default.
