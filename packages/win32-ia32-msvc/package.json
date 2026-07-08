@@ -24,14 +24,5 @@
   "dependencies": {
     "@esplus/node-addon-require-builtin-loader": "workspace:*"
   },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/deepseek-harness/dsh-node-addon-internal.git",
-    "directory": "packages/win32-ia32-msvc"
-  },
-  "bugs": {
-    "url": "https://github.com/deepseek-harness/dsh-node-addon-internal/issues"
-  },
-  "homepage": "https://github.com/deepseek-harness/dsh-node-addon-internal#readme"
+  "license": "MIT"
 }

@@ -27,14 +27,5 @@
   "scripts": {
     "build:js": "tsc -b"
   },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/deepseek-harness/dsh-node-addon-internal.git",
-    "directory": "packages/loader"
-  },
-  "bugs": {
-    "url": "https://github.com/deepseek-harness/dsh-node-addon-internal/issues"
-  },
-  "homepage": "https://github.com/deepseek-harness/dsh-node-addon-internal#readme"
+  "license": "MIT"
 }

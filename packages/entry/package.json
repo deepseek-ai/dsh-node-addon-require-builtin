@@ -38,15 +38,6 @@
     "node": ">=20"
   },
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/deepseek-harness/dsh-node-addon-internal.git",
-    "directory": "packages/entry"
-  },
-  "bugs": {
-    "url": "https://github.com/deepseek-harness/dsh-node-addon-internal/issues"
-  },
-  "homepage": "https://github.com/deepseek-harness/dsh-node-addon-internal#readme",
   "dependencies": {
     "@esplus/node-addon-require-builtin-loader": "workspace:*",
     "node-addon-api": "^8.9.0",
