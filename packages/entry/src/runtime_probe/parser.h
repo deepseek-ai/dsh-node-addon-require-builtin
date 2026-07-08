@@ -1,9 +1,8 @@
-#ifndef INTERNAL_REQUIRE_RUNTIME_PROBE_PARSER_H_
-#define INTERNAL_REQUIRE_RUNTIME_PROBE_PARSER_H_
+#pragma once
 
 #include "../runtime_compat.h"
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
 Result<GetterPattern> ParseDarwinArm64BuiltinModuleRequireGetterOffset(void* getter);
 Result<GetterPattern> ParseDarwinX64BuiltinModuleRequireGetterOffset(void* getter);
@@ -13,6 +12,4 @@ Result<GetterPattern> ParseWin32Arm64BuiltinModuleRequireGetterOffset(void* gett
 Result<GetterPattern> ParseWin32X64BuiltinModuleRequireGetterOffset(void* getter);
 Result<GetterPattern> ParseWin32Ia32BuiltinModuleRequireGetterOffset(void* getter);
 
-}  // namespace internal_require
-
-#endif  // INTERNAL_REQUIRE_RUNTIME_PROBE_PARSER_H_
+}  // namespace esplus::node::require_builtin

@@ -37,13 +37,13 @@ function localBuildRelativePath() {
     'build',
     'napi',
     `napi-v${NAPI_VERSION}-${platformSuffix()}`,
-    'internal_require.node',
+    'require_builtin.node',
   );
 }
 
 function validationScript() {
   return `
-    const trace = process.env.DSH_NODE_ADDON_INTERNAL_TRACE
+    const trace = process.env.NARB_TRACE
       ? (line) => require('node:fs').writeSync(2, '[dsh-probe] ' + line + '\\n')
       : () => {};
     try {
@@ -105,7 +105,7 @@ function runValidation(extraEnv) {
 }
 
 function traceEnabled() {
-  const value = process.env.DSH_NODE_ADDON_INTERNAL_TRACE;
+  const value = process.env.NARB_TRACE;
   return value != null && value !== '' && value !== '0';
 }
 
@@ -116,8 +116,8 @@ function writeValidationOutput(result) {
 
 function optionalPrebuildWorks() {
   const result = runValidation({
-    DSH_NODE_ADDON_INTERNAL_BACKEND: 'auto',
-    DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD: '1',
+    NARB_BACKEND: 'auto',
+    NARB_DISABLE_LOCAL_BUILD: '1',
   });
   return result.status === 0;
 }
@@ -251,7 +251,7 @@ function runNodeGyp() {
     shell: invocation.shell,
     env: {
       ...process.env,
-      DSH_NODE_ADDON_INTERNAL_BACKEND: 'napi',
+      NARB_BACKEND: 'napi',
       GYP_DEFINES: nodeGypDefines(process.env.GYP_DEFINES),
       npm_config_enable_lto: 'false',
       npm_config_enable_thin_lto: 'false',
@@ -265,7 +265,7 @@ function runNodeGyp() {
 }
 
 function copyNodeGypOutput() {
-  const source = path.join(root, 'build', 'Release', 'internal_require.node');
+  const source = path.join(root, 'build', 'Release', 'require_builtin.node');
   const target = path.join(root, localBuildRelativePath());
 
   if (!fs.existsSync(source)) {
@@ -279,8 +279,8 @@ function copyNodeGypOutput() {
 
 function validateLocalBuild() {
   const result = runValidation({
-    DSH_NODE_ADDON_INTERNAL_BACKEND: 'napi',
-    DSH_NODE_ADDON_INTERNAL_DISABLE_OPTIONAL_PACKAGE: '1',
+    NARB_BACKEND: 'napi',
+    NARB_DISABLE_OPTIONAL_PACKAGE: '1',
   });
   const shouldEcho = traceEnabled();
   if (shouldEcho) writeValidationOutput(result);
@@ -303,7 +303,7 @@ function main() {
     return;
   }
 
-  console.log('node-addon-require-builtin: optional prebuild unavailable, building from source');
+  console.log('@esplus/node-addon-require-builtin: optional prebuild unavailable, building from source');
   runNodeGyp();
   copyNodeGypOutput();
   validateLocalBuild();

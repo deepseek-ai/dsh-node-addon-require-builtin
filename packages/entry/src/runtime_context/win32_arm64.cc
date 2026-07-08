@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <cstring>
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 namespace {
 
 constexpr uint32_t kArm64Ret = 0xd65f03c0u;
@@ -68,4 +68,4 @@ Result<CurrentContextRead> ReadWin32Arm64CurrentV8Context(
   return ReadSretCurrentV8Context("win32-arm64", isolate, symbols);
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin

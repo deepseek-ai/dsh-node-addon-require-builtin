@@ -3,7 +3,7 @@
 #include <array>
 #include <cstring>
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
 void TraceRuntimeContextCodeBytes(const char* label, void* fn) {
   if (!DebugTraceEnabled() || fn == nullptr) return;
@@ -65,7 +65,7 @@ Result<CurrentContextRead> ReadSretCurrentV8Context(
   // uninitialized and the callee writes through garbage, so the sret ABI must
   // be used explicitly on Windows. On 32-bit x86 the member convention is
   // __thiscall, so the callee cleans up the pushed sret pointer.
-  using ContextSretFn = void (INTERNAL_REQUIRE_MEMBER_ABI*)(void* /*this*/,
+  using ContextSretFn = void (NARB_MEMBER_ABI*)(void* /*this*/,
                                                             void* /*ret*/);
   void* context = nullptr;
   DebugTrace("calling Isolate::GetCurrentContext(isolate) (%s sret)", platform);
@@ -95,4 +95,4 @@ Result<CurrentContextRead> ReadSretCurrentV8Context(
   return Result<CurrentContextRead>::Ok(read);
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin

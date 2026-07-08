@@ -2,11 +2,11 @@
 
 #include "getter_decoder.h"
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
 Result<GetterPattern> ParseDarwinX64BuiltinModuleRequireGetterOffset(
     void* getter) {
   return MatchX64SysVFieldGetter(getter, "darwin-x64");
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin

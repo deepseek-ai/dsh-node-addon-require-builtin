@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 import { purgeLoadCacheByPrefix, type LoadCache } from './internalesm-utils.mjs'
 
-type InternalRequireAddon = {
+type RequireBuiltinAddon = {
   requireBuiltin(moduleId: string): unknown
 }
 
@@ -25,7 +25,7 @@ export function purgeFixtureEsmLoadCacheViaAddon(prefix: string): void {
 }
 
 function getAddonEsmLoadCache(): LoadCache {
-  const addon = requireFromStrategy(addonRoot) as InternalRequireAddon
+  const addon = requireFromStrategy(addonRoot) as RequireBuiltinAddon
   const loaderModule = addon.requireBuiltin('internal/modules/esm/loader') as EsmLoaderModule
 
   return loaderModule.getOrInitializeCascadedLoader().loadCache

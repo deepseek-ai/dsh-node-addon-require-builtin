@@ -1,5 +1,4 @@
-#ifndef INTERNAL_REQUIRE_NATIVE_TYPES_H_
-#define INTERNAL_REQUIRE_NATIVE_TYPES_H_
+#pragma once
 
 #include "backend_config.h"
 #include "debug_trace.h"
@@ -15,7 +14,7 @@
 #include <string_view>
 #include <utility>
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
 struct RuntimeRequireBuiltin;
 
@@ -27,9 +26,9 @@ struct RuntimeRequireBuiltin;
 // through pointers carrying this convention, or the x86 call would push `this`
 // on the stack and corrupt the frame.
 #if defined(_WIN32) && defined(_M_IX86)
-#define INTERNAL_REQUIRE_MEMBER_ABI __thiscall
+#define NARB_MEMBER_ABI __thiscall
 #else
-#define INTERNAL_REQUIRE_MEMBER_ABI
+#define NARB_MEMBER_ABI
 #endif
 
 constexpr int kRealmSlot = 38;
@@ -41,7 +40,7 @@ constexpr std::string_view kDefaultTarget = kEsmLoaderTarget;
 enum class ProbeStatus {
   kUnsupportedNotStarted,
   kSupported,
-  kPartialInternalRequireOnly,
+  kPartialRequireBuiltinOnly,
   kUnsupportedNoContext,
   kUnsupportedNoRealm,
   kUnsupportedNoGetter,
@@ -189,6 +188,4 @@ std::string_view ProbeStatusString(ProbeStatus status);
 std::string_view ProbeResultString(ProbeResultKind result);
 std::string_view SmokePropertyString(SmokePropertyKind property);
 
-}  // namespace internal_require
-
-#endif  // INTERNAL_REQUIRE_NATIVE_TYPES_H_
+}  // namespace esplus::node::require_builtin

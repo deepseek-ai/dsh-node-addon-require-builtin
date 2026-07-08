@@ -3,11 +3,11 @@
     "enable_lto": "false",
     "enable_thin_lto": "false",
     "lto_jobs": "",
-    "internal_require_backend%": "napi"
+    "narb_backend%": "napi"
   },
   "targets": [
     {
-      "target_name": "internal_require",
+      "target_name": "require_builtin",
       "sources": [
         "src/node_api_addon.cc",
         "src/debug_trace.cc",
@@ -33,7 +33,7 @@
         "src/runtime_probe/win32_arm64.cc",
         "src/runtime_probe/win32_x64.cc",
         "src/runtime_probe/win32_ia32.cc",
-        "src/internal_require_probe.cc"
+        "src/require_builtin_probe.cc"
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")"
@@ -65,7 +65,7 @@
       },
       "conditions": [
         [
-          "internal_require_backend=='nodeabi'",
+          "narb_backend=='nodeabi'",
           {
             "sources": [
               "src/runtime_compat_nodeabi.cc"
@@ -74,7 +74,7 @@
               "<!@(node -e \"const path=require('node:path'); for (const dir of (process.env.NODE_JS_PUBLIC_INCLUDE_DIRS || '').split(path.delimiter).filter(Boolean)) console.log(dir)\")"
             ],
             "defines": [
-              "INTERNAL_REQUIRE_BACKEND=2",
+              "NARB_BACKEND=2",
               "HAVE_SQLITE=0",
               "HAVE_AMARO=0"
             ],
@@ -97,7 +97,7 @@
               "src/runtime_compat_napi.cc"
             ],
             "defines": [
-              "INTERNAL_REQUIRE_BACKEND=1"
+              "NARB_BACKEND=1"
             ],
             "cflags_cc": [
               "-std=c++17"

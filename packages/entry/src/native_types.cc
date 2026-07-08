@@ -6,7 +6,7 @@
 
 #include <sstream>
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
 void ProbeState::ApplyRuntimeRequireBuiltin(
     const RuntimeRequireBuiltin& runtime) {
@@ -109,7 +109,7 @@ uint32_t NapiVersion(napi_env env) {
 
 std::string BinaryAbi() {
   std::ostringstream out;
-#if INTERNAL_REQUIRE_BACKEND == INTERNAL_REQUIRE_BACKEND_NAPI
+#if NARB_BACKEND == NARB_BACKEND_NAPI
   out << "napi-v" << NAPI_VERSION;
 #else
   out << "node-v" << NODE_MODULE_VERSION;
@@ -135,7 +135,7 @@ std::string_view ProbeStatusString(ProbeStatus status) {
       return "Unsupported/not-started";
     case ProbeStatus::kSupported:
       return "Supported";
-    case ProbeStatus::kPartialInternalRequireOnly:
+    case ProbeStatus::kPartialRequireBuiltinOnly:
       return "Partial/internal-require-only";
     case ProbeStatus::kUnsupportedNoContext:
       return "Unsupported/no-context";
@@ -175,4 +175,4 @@ std::string_view SmokePropertyString(SmokePropertyKind property) {
   return "";
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin

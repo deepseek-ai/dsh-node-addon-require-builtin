@@ -11,8 +11,8 @@ function sortedKeys(value) {
 const info = addon.getBindingInfo();
 assert.equal(addon.getBindingInfo(), info);
 
-const requestedBackend = process.env.DSH_NODE_ADDON_INTERNAL_BACKEND;
-const expectedBackend = process.env.DSH_NODE_ADDON_INTERNAL_EXPECTED_BACKEND ||
+const requestedBackend = process.env.NARB_BACKEND;
+const expectedBackend = process.env.NARB_EXPECTED_BACKEND ||
   (requestedBackend === 'nodeabi' || requestedBackend === 'napi'
     ? requestedBackend
     : info.backend);
@@ -25,19 +25,19 @@ const expectedOptionalBinary = expectedBackend === 'nodeabi'
   ? `prebuilt/${platformSuffix}-nodeabi-v${process.versions.modules}.node`
   : `prebuilt/${platformSuffix}-napi-v9.node`;
 const expectedLocalBuildPath = expectedBackend === 'nodeabi'
-  ? new RegExp(`build/nodeabi/node-v[0-9]+-${platformSuffix}/internal_require\\.node$`)
-  : new RegExp(`build/napi/napi-v9-${platformSuffix}/internal_require\\.node$`);
+  ? new RegExp(`build/nodeabi/node-v[0-9]+-${platformSuffix}/require_builtin\\.node$`)
+  : new RegExp(`build/napi/napi-v9-${platformSuffix}/require_builtin\\.node$`);
 
 assert.equal(
   info.optionalPackageName,
-  `node-addon-require-builtin-${platformSuffix}`,
+  `@esplus/node-addon-require-builtin-${platformSuffix}`,
 );
 assert.equal(typeof platformSuffix, 'string');
 assert.match(info.bindingPath, /\.node$/);
 assert.match(toPortablePath(info.localBindingPath), expectedLocalBuildPath);
 assert.equal(toPortablePath(info.optionalBinaryRelativePath), expectedOptionalBinary);
 
-if (process.env.DSH_NODE_ADDON_INTERNAL_DISABLE_LOCAL_BUILD === '1') {
+if (process.env.NARB_DISABLE_LOCAL_BUILD === '1') {
   assert.match(info.bindingSource, /^optional-package/);
 } else {
   assert.match(

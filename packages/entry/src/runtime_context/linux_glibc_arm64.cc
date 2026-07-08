@@ -1,6 +1,6 @@
 #include "helper.h"
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
 Result<CurrentContextRead> ReadLinuxGlibcArm64CurrentV8Context(
     void* isolate,
@@ -8,4 +8,4 @@ Result<CurrentContextRead> ReadLinuxGlibcArm64CurrentV8Context(
   return ReadDirectCurrentV8Context("linux-glibc-arm64", isolate, symbols);
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin

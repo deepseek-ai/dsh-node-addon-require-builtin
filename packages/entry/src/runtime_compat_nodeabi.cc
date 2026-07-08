@@ -4,14 +4,14 @@
 #include "runtime_context/helper.h"
 #include "runtime_probe/helper.h"
 
-#if INTERNAL_REQUIRE_BACKEND == INTERNAL_REQUIRE_BACKEND_NODEABI || \
-    INTERNAL_REQUIRE_BACKEND == INTERNAL_REQUIRE_BACKEND_NODEABI_VERIFY
+#if NARB_BACKEND == NARB_BACKEND_NODEABI || \
+    NARB_BACKEND == NARB_BACKEND_NODEABI_VERIFY
 
 #include <node.h>
 #include <node_version.h>
 #include <v8.h>
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 namespace {
 
 static_assert(sizeof(v8::Local<v8::Value>) == sizeof(napi_value),
@@ -125,6 +125,6 @@ Result<RuntimeRequireBuiltin> ProbeRuntimeRequireBuiltin(napi_env env) {
   return Result<RuntimeRequireBuiltin>::Ok(result);
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin
 
 #endif

@@ -1,11 +1,10 @@
-#ifndef INTERNAL_REQUIRE_RUNTIME_PROBE_GETTER_DECODER_H_
-#define INTERNAL_REQUIRE_RUNTIME_PROBE_GETTER_DECODER_H_
+#pragma once
 
 #include "../runtime_compat.h"
 
 #include <string_view>
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
 // Number of bytes each matcher copies out of a candidate getter before
 // decoding. Callers that hand the matchers an arbitrary code pointer (e.g. the
@@ -63,6 +62,4 @@ Result<GetterPattern> MatchArm64Win64FieldGetter(void* getter,
 Result<GetterPattern> MatchX86ThiscallFieldGetter(void* getter,
                                                   std::string_view platform_tag);
 
-}  // namespace internal_require
-
-#endif  // INTERNAL_REQUIRE_RUNTIME_PROBE_GETTER_DECODER_H_
+}  // namespace esplus::node::require_builtin

@@ -7,11 +7,11 @@
 #include <array>
 #include <cstring>
 
-#if INTERNAL_REQUIRE_BACKEND != INTERNAL_REQUIRE_BACKEND_NAPI
-#error "runtime_compat_napi.cc only implements INTERNAL_REQUIRE_BACKEND_NAPI"
+#if NARB_BACKEND != NARB_BACKEND_NAPI
+#error "runtime_compat_napi.cc only implements NARB_BACKEND_NAPI"
 #endif
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 namespace {
 
 // Private C++ ABI symbols. These names are not part of Node-API stability;
@@ -30,9 +30,9 @@ constexpr std::string_view kSymContextSlowGetAlignedPointerTagged =
 
 using GetCurrentIsolateFn = void* (*)();
 using SlowGetAlignedPointerUntaggedFn =
-    void* (INTERNAL_REQUIRE_MEMBER_ABI*)(void*, int);
+    void* (NARB_MEMBER_ABI*)(void*, int);
 using SlowGetAlignedPointerTaggedFn =
-    void* (INTERNAL_REQUIRE_MEMBER_ABI*)(void*, int, uint16_t);
+    void* (NARB_MEMBER_ABI*)(void*, int, uint16_t);
 
 enum class EmbedderDataFamily {
   kUntagged,
@@ -199,4 +199,4 @@ Result<RuntimeRequireBuiltin> ProbeRuntimeRequireBuiltin(napi_env env) {
   return Result<RuntimeRequireBuiltin>::Ok(result);
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin

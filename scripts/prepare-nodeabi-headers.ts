@@ -8,7 +8,7 @@ import {
 } from './path-utils.js';
 
 const root = path.resolve(__dirname, '..');
-const cacheRoot = process.env.DSH_NODE_ADDON_INTERNAL_HEADERS_CACHE ||
+const cacheRoot = process.env.NARB_HEADERS_CACHE ||
   process.env.NODE_HEADERS_CACHE ||
   path.join(root, '.cache', 'node-headers');
 const baseUrl = process.env.NODE_DIST_BASE_URL ||

@@ -1,11 +1,10 @@
-#ifndef INTERNAL_REQUIRE_RUNTIME_PROBE_HELPER_H_
-#define INTERNAL_REQUIRE_RUNTIME_PROBE_HELPER_H_
+#pragma once
 
 #include "../runtime_compat.h"
 
 #include <string_view>
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
 void* LookupProcessSymbol(std::string_view name);
 
@@ -24,6 +23,4 @@ Result<napi_value> ReadAndValidateRequireBuiltinHandle(napi_env env,
                                                        void* getter,
                                                        const GetterPattern& pattern);
 
-}  // namespace internal_require
-
-#endif  // INTERNAL_REQUIRE_RUNTIME_PROBE_HELPER_H_
+}  // namespace esplus::node::require_builtin

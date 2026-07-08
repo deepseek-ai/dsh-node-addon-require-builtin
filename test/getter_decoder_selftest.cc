@@ -10,14 +10,14 @@
 #include <cstring>
 #include <vector>
 
-using internal_require::GetterCallMode;
-using internal_require::GetterPattern;
-using internal_require::MatchArm64FieldGetter;
-using internal_require::MatchArm64Win64FieldGetter;
-using internal_require::MatchX64SysVFieldGetter;
-using internal_require::MatchX64Win64FieldGetter;
-using internal_require::MatchX86ThiscallFieldGetter;
-using internal_require::Result;
+using esplus::node::require_builtin::GetterCallMode;
+using esplus::node::require_builtin::GetterPattern;
+using esplus::node::require_builtin::MatchArm64FieldGetter;
+using esplus::node::require_builtin::MatchArm64Win64FieldGetter;
+using esplus::node::require_builtin::MatchX64SysVFieldGetter;
+using esplus::node::require_builtin::MatchX64Win64FieldGetter;
+using esplus::node::require_builtin::MatchX86ThiscallFieldGetter;
+using esplus::node::require_builtin::Result;
 
 namespace {
 

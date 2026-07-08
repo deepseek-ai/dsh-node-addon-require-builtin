@@ -3,10 +3,10 @@
 #include <array>
 #include <cstring>
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 namespace {
 
-using ContextSretFn = void (INTERNAL_REQUIRE_MEMBER_ABI*)(void* /*this*/,
+using ContextSretFn = void (NARB_MEMBER_ABI*)(void* /*this*/,
                                                           void* /*ret*/);
 
 bool GetCurrentContextUsesRcxThis(const uint8_t* code, size_t len) {
@@ -72,4 +72,4 @@ Result<CurrentContextRead> ReadWin32X64CurrentV8Context(
   return Result<CurrentContextRead>::Ok(read);
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin

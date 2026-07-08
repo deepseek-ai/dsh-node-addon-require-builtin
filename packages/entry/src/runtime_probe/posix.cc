@@ -8,7 +8,7 @@
 
 #include <cstdint>
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
 bool IsPlatformReadableRange(const void* address, size_t size) {
   if (address == nullptr || size == 0) return false;
@@ -73,6 +73,6 @@ Result<ImageValidation> ValidatePlatformRuntimeImagePointers(void* getter,
   return Result<ImageValidation>::Ok(image);
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin
 
 #endif  // !defined(_WIN32)

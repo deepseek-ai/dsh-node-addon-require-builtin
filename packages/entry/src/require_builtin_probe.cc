@@ -1,12 +1,12 @@
-#include "internal_require_probe.h"
+#include "require_builtin_probe.h"
 
 #include "runtime_compat.h"
 
 #include <utility>
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
-InternalRequireProbe::InternalRequireProbe(Napi::Env env,
+RequireBuiltinProbe::RequireBuiltinProbe(Napi::Env env,
                                            Napi::Value target,
                                            bool load_target)
     : env_(env), load_target_(load_target) {
@@ -22,18 +22,18 @@ InternalRequireProbe::InternalRequireProbe(Napi::Env env,
   state_.target.assign(kDefaultTarget.data(), kDefaultTarget.size());
 }
 
-Napi::Value InternalRequireProbe::GetNamedProperty(Napi::Value object,
+Napi::Value RequireBuiltinProbe::GetNamedProperty(Napi::Value object,
                                                    const char* key) {
   if (object.IsEmpty() || !object.IsObject()) return {};
   return object.As<Napi::Object>().Get(key);
 }
 
-std::string InternalRequireProbe::NapiStringToStdString(Napi::Value value) {
+std::string RequireBuiltinProbe::NapiStringToStdString(Napi::Value value) {
   if (value.IsEmpty() || !value.IsString()) return "";
   return value.As<Napi::String>().Utf8Value();
 }
 
-Status InternalRequireProbe::ResolveRequireBuiltin() {
+Status RequireBuiltinProbe::ResolveRequireBuiltin() {
   // Version-specific private probing is isolated in the selected runtime_compat
   // backend implementation. From this point on the flow uses node-addon-api
   // wrappers for public JS value operations.
@@ -44,7 +44,7 @@ Status InternalRequireProbe::ResolveRequireBuiltin() {
   return Status::Ok();
 }
 
-Status InternalRequireProbe::ValidateRequireBuiltinName() {
+Status RequireBuiltinProbe::ValidateRequireBuiltinName() {
   Napi::Value name_value = GetNamedProperty(
       Napi::Function(env_, state_.require_builtin), "name");
   state_.require_builtin_name = NapiStringToStdString(name_value);
@@ -55,7 +55,7 @@ Status InternalRequireProbe::ValidateRequireBuiltinName() {
   return Status::Ok();
 }
 
-bool InternalRequireProbe::HasSelfReference(Napi::Object object,
+bool RequireBuiltinProbe::HasSelfReference(Napi::Object object,
                                             const char* property,
                                             SmokePropertyKind property_kind) {
   Napi::Value value = GetNamedProperty(object, property);
@@ -68,7 +68,7 @@ bool InternalRequireProbe::HasSelfReference(Napi::Object object,
   return false;
 }
 
-Status InternalRequireProbe::SmokeTest() {
+Status RequireBuiltinProbe::SmokeTest() {
   Napi::Value realm_exports = CallRequireBuiltin(
       Napi::Function(env_, state_.require_builtin),
       Napi::String::New(env_, "internal/bootstrap/realm"));
@@ -93,14 +93,14 @@ Status InternalRequireProbe::SmokeTest() {
                          "internal/bootstrap/realm self-id smoke test failed");
 }
 
-Result<ProbeOutcome> InternalRequireProbe::LoadTargetModule() {
+Result<ProbeOutcome> RequireBuiltinProbe::LoadTargetModule() {
   Napi::Value target_exports = CallRequireBuiltin(
       Napi::Function(env_, state_.require_builtin), target_id_);
   if (target_exports.IsEmpty()) {
     // A failed target load usually leaves a pending JS exception. Consume it so
     // the public getter can throw one clear unsupported error with diagnostics.
     if (env_.IsExceptionPending()) env_.GetAndClearPendingException();
-    state_.status = ProbeStatus::kPartialInternalRequireOnly;
+    state_.status = ProbeStatus::kPartialRequireBuiltinOnly;
     state_.result = ProbeResultKind::kPartial;
     state_.error = "target internal module load failed";
     return Result<ProbeOutcome>::Ok(ProbeOutcome::kPartial);
@@ -111,7 +111,7 @@ Result<ProbeOutcome> InternalRequireProbe::LoadTargetModule() {
   return Result<ProbeOutcome>::Ok(ProbeOutcome::kContinue);
 }
 
-Status InternalRequireProbe::RunStatus() {
+Status RequireBuiltinProbe::RunStatus() {
   if (load_target_ && !IsAllowedInternalId(state_.target)) {
     std::string message = "moduleId must be one of: ";
     message.append(AllowedInternalIdList());
@@ -138,7 +138,7 @@ Status InternalRequireProbe::RunStatus() {
   return Status::Ok();
 }
 
-bool InternalRequireProbe::Run() {
+bool RequireBuiltinProbe::Run() {
   Status status = RunStatus();
   if (!status.ok()) {
     state_.status = status.code();
@@ -156,4 +156,4 @@ Napi::Value CallRequireBuiltin(Napi::Function require_builtin, Napi::String id) 
   return require_builtin.Call({id});
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin

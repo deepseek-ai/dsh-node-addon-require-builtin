@@ -1,6 +1,6 @@
 #include "helper.h"
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 
 Result<CurrentContextRead> ReadWin32Ia32CurrentV8Context(
     void* isolate,
@@ -14,4 +14,4 @@ Result<CurrentContextRead> ReadWin32Ia32CurrentV8Context(
   return ReadSretCurrentV8Context("win32-ia32", isolate, symbols);
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin

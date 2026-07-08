@@ -40,9 +40,9 @@ function run(node: string, args: string[]): void {
     stdio: 'inherit',
     env: {
       ...process.env,
-      DSH_NODE_ADDON_INTERNAL_BACKEND: 'napi',
-      DSH_NODE_ADDON_INTERNAL_EXPECTED_BACKEND: 'napi',
-      DSH_NODE_ADDON_INTERNAL_DISABLE_OPTIONAL_PACKAGE: '1',
+      NARB_BACKEND: 'napi',
+      NARB_EXPECTED_BACKEND: 'napi',
+      NARB_DISABLE_OPTIONAL_PACKAGE: '1',
     },
   });
   if (result.error) throw result.error;

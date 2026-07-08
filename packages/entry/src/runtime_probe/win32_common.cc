@@ -13,7 +13,7 @@
 #include <vector>
 #include <windows.h>
 
-namespace internal_require {
+namespace esplus::node::require_builtin {
 namespace {
 
 constexpr size_t kMaxWindowsRealmVtableScanSlots = 192;
@@ -650,6 +650,6 @@ Result<ImageValidation> ValidatePlatformRuntimeImagePointers(void* getter,
   return Result<ImageValidation>::Ok(image);
 }
 
-}  // namespace internal_require
+}  // namespace esplus::node::require_builtin
 
 #endif  // defined(_WIN32)
