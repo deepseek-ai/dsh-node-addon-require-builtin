@@ -1,6 +1,6 @@
 {
   "name": "@esplus/node-addon-require-builtin-loader",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "commonjs",
   "description": "Shared loader for @esplus/node-addon-require-builtin entry and platform packages.",
   "main": "lib/index.js",
