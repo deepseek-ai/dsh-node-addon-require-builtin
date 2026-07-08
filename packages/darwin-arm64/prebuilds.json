@@ -2,34 +2,6 @@
   "platform": "darwin-arm64",
   "binaries": [
     {
-      "backend": "nodeabi",
-      "abi": "node-v115",
-      "binaryTag": "nodeabi-v115",
-      "node": "20",
-      "path": "prebuilt/darwin-arm64-nodeabi-v115.node"
-    },
-    {
-      "backend": "nodeabi",
-      "abi": "node-v127",
-      "binaryTag": "nodeabi-v127",
-      "node": "22",
-      "path": "prebuilt/darwin-arm64-nodeabi-v127.node"
-    },
-    {
-      "backend": "nodeabi",
-      "abi": "node-v137",
-      "binaryTag": "nodeabi-v137",
-      "node": "24",
-      "path": "prebuilt/darwin-arm64-nodeabi-v137.node"
-    },
-    {
-      "backend": "nodeabi",
-      "abi": "node-v147",
-      "binaryTag": "nodeabi-v147",
-      "node": "26",
-      "path": "prebuilt/darwin-arm64-nodeabi-v147.node"
-    },
-    {
       "backend": "napi",
       "abi": "napi-v9",
       "binaryTag": "napi-v9",

@@ -32,13 +32,11 @@ Selection order:
    `linux-x64-gnu`.
 2. Try the matching platform optional package unless
    `NARB_DISABLE_OPTIONAL_PACKAGE=1`.
-3. In the optional package, try a matching `nodeabi` binary first when the
-   package manifest includes the current `process.versions.modules`.
-4. Fall back to `napi-v9`.
-5. If no optional package binary works, fail closed. Published packages do not
+3. In the optional package, load the `napi-v9` binary for the current platform.
+4. If no optional package binary works, fail closed. Published packages do not
    compile native sources at install time.
 
-`NARB_BACKEND=napi|nodeabi|auto` controls backend preference.
+`NARB_BACKEND=napi|nodeabi|auto` controls backend preference in development.
 `auto` is the default.
 
 ## Native API Layer
@@ -93,7 +91,8 @@ Constraints:
 
 ### `nodeabi`
 
-The `nodeabi` backend builds one binary per Node module ABI.
+The `nodeabi` backend builds one binary per Node module ABI for source-build
+validation. It is not published as an optional prebuild artifact.
 
 Constraints:
 
@@ -159,7 +158,6 @@ Examples:
 
 ```text
 packages/darwin-arm64/prebuilt/darwin-arm64-napi-v9.node
-packages/darwin-arm64/prebuilt/darwin-arm64-nodeabi-v137.node
 ```
 
 Generated binaries are ignored by git and produced by local release or CI jobs.

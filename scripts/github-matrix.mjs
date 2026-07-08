@@ -21,7 +21,9 @@ const NODE_ARCH = {
   'win32-ia32-msvc': 'x86',
 };
 
-const CI_NODE_MAJORS = [22, 24, 26];
+const BUILD_NODE = {
+  'win32-ia32-msvc': 22,
+};
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -38,32 +40,19 @@ function platformManifest(platform) {
   return readJson(path.join(packagesRoot, platform, 'prebuilds.json'));
 }
 
-function nodeMajor(binary) {
-  if (typeof binary.node !== 'string' || !/^\d+$/.test(binary.node)) {
-    return null;
-  }
-  return Number(binary.node);
+function napiBinary(platform) {
+  const binary = platformManifest(platform).binaries.find((item) => item.backend === 'napi');
+  if (!binary) throw new Error(`missing napi binary declaration for ${platform}`);
+  return binary;
 }
 
-function nodeabiBinaries(platform) {
-  return platformManifest(platform).binaries
-    .filter((binary) => binary.backend === 'nodeabi')
-    .map((binary) => ({ ...binary, nodeMajor: nodeMajor(binary) }))
-    .filter((binary) => binary.nodeMajor !== null)
-    .sort((a, b) => a.nodeMajor - b.nodeMajor);
-}
-
-function napiBuildNode(platform) {
-  const supported = nodeabiBinaries(platform).map((binary) => binary.nodeMajor);
-  if (supported.includes(24)) return 24;
-  return Math.max(...supported);
-}
-
-function baseMatrixEntry(platform, node) {
+function platformEntry(platform) {
   const entry = {
     platform,
-    node,
     runner: RUNNERS[platform],
+    build_node: BUILD_NODE[platform] || 24,
+    filename: path.basename(napiBinary(platform).path),
+    artifact: `prebuild-${platform}-napi-v9`,
   };
   if (!entry.runner) {
     throw new Error(`missing GitHub runner for platform: ${platform}`);
@@ -74,56 +63,14 @@ function baseMatrixEntry(platform, node) {
   return entry;
 }
 
-function supportedMatrix() {
-  const include = [];
-  for (const platform of platformDirs()) {
-    const supportedNodes = new Set(nodeabiBinaries(platform).map((binary) => binary.nodeMajor));
-    for (const node of CI_NODE_MAJORS) {
-      if (!supportedNodes.has(node)) continue;
-      include.push({
-        ...baseMatrixEntry(platform, node),
-        optional: true,
-      });
-    }
-  }
-  return { include };
-}
-
-function releasePrebuildMatrix() {
-  const include = [];
-  for (const platform of platformDirs()) {
-    const napiBinary = platformManifest(platform).binaries.find((binary) => binary.backend === 'napi');
-    if (!napiBinary) {
-      throw new Error(`missing napi binary declaration for ${platform}`);
-    }
-    include.push({
-      ...baseMatrixEntry(platform, napiBuildNode(platform)),
-      backend: 'napi',
-      abi: napiBinary.abi,
-      binaryTag: napiBinary.binaryTag,
-      filename: path.basename(napiBinary.path),
-      artifact: `prebuild-${platform}-${napiBinary.binaryTag}`,
-    });
-
-    for (const binary of nodeabiBinaries(platform)) {
-      include.push({
-        ...baseMatrixEntry(platform, binary.nodeMajor),
-        backend: 'nodeabi',
-        abi: binary.abi,
-        binaryTag: binary.binaryTag,
-        filename: path.basename(binary.path),
-        artifact: `prebuild-${platform}-${binary.binaryTag}`,
-      });
-    }
-  }
-  return { include };
+function platformMatrix() {
+  return { include: platformDirs().map((platform) => platformEntry(platform)) };
 }
 
 const target = process.argv[2];
 const matrices = {
-  'ci-supported': supportedMatrix,
-  'ci-hmr': supportedMatrix,
-  'release-prebuild': releasePrebuildMatrix,
+  'ci-platforms': platformMatrix,
+  'release-platforms': platformMatrix,
 };
 
 if (!target || !matrices[target]) {

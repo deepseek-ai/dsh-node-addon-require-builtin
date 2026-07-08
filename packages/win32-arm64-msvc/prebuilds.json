@@ -2,34 +2,6 @@
   "platform": "win32-arm64-msvc",
   "binaries": [
     {
-      "backend": "nodeabi",
-      "abi": "node-v115",
-      "binaryTag": "nodeabi-v115",
-      "node": "20",
-      "path": "prebuilt/win32-arm64-msvc-nodeabi-v115.node"
-    },
-    {
-      "backend": "nodeabi",
-      "abi": "node-v127",
-      "binaryTag": "nodeabi-v127",
-      "node": "22",
-      "path": "prebuilt/win32-arm64-msvc-nodeabi-v127.node"
-    },
-    {
-      "backend": "nodeabi",
-      "abi": "node-v137",
-      "binaryTag": "nodeabi-v137",
-      "node": "24",
-      "path": "prebuilt/win32-arm64-msvc-nodeabi-v137.node"
-    },
-    {
-      "backend": "nodeabi",
-      "abi": "node-v147",
-      "binaryTag": "nodeabi-v147",
-      "node": "26",
-      "path": "prebuilt/win32-arm64-msvc-nodeabi-v147.node"
-    },
-    {
       "backend": "napi",
       "abi": "napi-v9",
       "binaryTag": "napi-v9",

@@ -21,20 +21,20 @@ jobs:
     name: Matrix
     runs-on: ubuntu-24.04
     outputs:
-      prebuilds: ${{ steps.matrix.outputs.prebuilds }}
+      platforms: ${{ steps.matrix.outputs.platforms }}
     steps:
       - uses: actions/checkout@v4
 
       - id: matrix
-        run: echo "prebuilds=$(node ./scripts/github-matrix.mjs release-prebuild)" >> "$GITHUB_OUTPUT"
+        run: echo "platforms=$(node ./scripts/github-matrix.mjs release-platforms)" >> "$GITHUB_OUTPUT"
 
-  build-prebuilds:
-    name: ${{ matrix.platform }} / ${{ matrix.binaryTag }}
+  build-and-test-napi:
+    name: ${{ matrix.platform }} / build and test napi
     needs: matrix
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.matrix.outputs.prebuilds) }}
+      matrix: ${{ fromJson(needs.matrix.outputs.platforms) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -45,7 +45,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
+          node-version: ${{ matrix.build_node }}
           architecture: ${{ matrix.nodearch }}
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
@@ -62,18 +62,84 @@ jobs:
       - name: Build TypeScript entrypoints
         run: pnpm build:ts
 
-      - name: Prepare Node.js public headers
-        if: matrix.backend == 'nodeabi'
-        run: pnpm -s headers -- --github-env
+      - name: Build N-API prebuild
+        run: pnpm build:prebuild:napi
 
-      - name: Build prebuild
-        run: pnpm build:prebuild:${{ matrix.backend }}
-
-      - name: Check prebuild output
+      - name: Check N-API prebuild output
         run: |
           node -e "const fs = require('node:fs'); const file = 'packages/${{ matrix.platform }}/prebuilt/${{ matrix.filename }}'; if (!fs.existsSync(file)) throw new Error('missing prebuild: ' + file);"
 
-      - name: Upload prebuild
+      - name: Test N-API prebuild on Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          architecture: ${{ matrix.nodearch }}
+
+      - name: Test N-API prebuild on Node 20
+        run: |
+          node ./test/backend.test.js
+          node --expose-internals ./test/require-parity.test.js
+        env:
+          NARB_BACKEND: napi
+          NARB_EXPECTED_BACKEND: napi
+          NARB_DISABLE_LOCAL_BUILD: 1
+
+      - name: Test N-API prebuild on Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          architecture: ${{ matrix.nodearch }}
+
+      - name: Test N-API prebuild on Node 22
+        run: |
+          node ./test/backend.test.js
+          node --expose-internals ./test/require-parity.test.js
+        env:
+          NARB_BACKEND: napi
+          NARB_EXPECTED_BACKEND: napi
+          NARB_DISABLE_LOCAL_BUILD: 1
+
+      - name: Test N-API prebuild on Node 24
+        if: matrix.platform != 'win32-ia32-msvc'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          architecture: ${{ matrix.nodearch }}
+
+      - name: Test N-API prebuild on Node 24
+        if: matrix.platform != 'win32-ia32-msvc'
+        run: |
+          node ./test/backend.test.js
+          node --expose-internals ./test/require-parity.test.js
+        env:
+          NARB_BACKEND: napi
+          NARB_EXPECTED_BACKEND: napi
+          NARB_DISABLE_LOCAL_BUILD: 1
+
+      - name: Test N-API prebuild on Node 26
+        if: matrix.platform != 'win32-ia32-msvc'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          architecture: ${{ matrix.nodearch }}
+
+      - name: Test N-API prebuild on Node 26
+        if: matrix.platform != 'win32-ia32-msvc'
+        run: |
+          node ./test/backend.test.js
+          node --expose-internals ./test/require-parity.test.js
+        env:
+          NARB_BACKEND: napi
+          NARB_EXPECTED_BACKEND: napi
+          NARB_DISABLE_LOCAL_BUILD: 1
+
+      - name: Prepare Node.js public headers
+        run: pnpm -s headers -- --github-env
+
+      - name: Test nodeabi source build
+        run: pnpm test:nodeabi
+
+      - name: Upload N-API prebuild
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
@@ -83,7 +149,7 @@ jobs:
 
   pack:
     name: Pack npm tarballs
-    needs: build-prebuilds
+    needs: build-and-test-napi
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

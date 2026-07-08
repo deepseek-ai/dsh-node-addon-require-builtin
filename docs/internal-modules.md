@@ -17,12 +17,15 @@ throws an `Unsupported/disallowed-target` error.
 
 ## Version And ABI Coverage
 
-| Node range | `NODE_MODULE_VERSION` | `nodeabi` artifact | `napi` artifact |
-|---|---:|---|---|
-| `>=20.0.0 <21.0.0` | 115 | `nodeabi-v115` | `napi-v9` |
-| `>=22.0.0 <23.0.0` | 127 | `nodeabi-v127` | `napi-v9` |
-| `>=24.0.0 <25.0.0` | 137 | `nodeabi-v137` | `napi-v9` |
-| `>=26.0.0 <27.0.0` | 147 | `nodeabi-v147` | `napi-v9` |
+| Node range | `NODE_MODULE_VERSION` | Published artifact |
+|---|---:|---|
+| `>=20.0.0 <21.0.0` | 115 | `napi-v9` |
+| `>=22.0.0 <23.0.0` | 127 | `napi-v9` |
+| `>=24.0.0 <25.0.0` | 137 | `napi-v9` |
+| `>=26.0.0 <27.0.0` | 147 | `napi-v9` |
+
+The `nodeabi` backend remains available for repository source-build validation,
+but nodeabi binaries are not published.
 
 Windows x86 (`win32-ia32-msvc`) is limited to Node 20 and Node 22 because Node.js
 does not publish 32-bit Windows runtimes after v22.

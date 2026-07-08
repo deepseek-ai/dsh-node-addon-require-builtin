@@ -63,13 +63,11 @@ The native implementation has two backend dimensions:
 
 - `napi`: default release backend. It builds one `napi-v9` binary per supported
   platform/arch and discovers private Node/V8 state at runtime.
-- `nodeabi`: Node-major/ABI backend. It is selected at compile time and uses
-  matching official Node.js public headers. It still avoids Node source private
-  headers.
+- `nodeabi`: Node-major/ABI backend used for source-build validation in this
+  repository. It is not published as an optional prebuild artifact.
 
-The loader defaults to `auto`: it tries a matching `nodeabi` binary when the
-platform package contains one for `process.versions.modules`, then falls back to
-`napi-v9`. Set `NARB_BACKEND=napi` or `NARB_BACKEND=nodeabi` to force one
+The published loader defaults to `auto`, which resolves to the current
+platform's `napi-v9` optional prebuild. Set `NARB_BACKEND=napi` to force that
 backend.
 
 ## Development
@@ -98,7 +96,6 @@ For current-platform prebuild preparation:
 ```sh
 eval "$(pnpm -s headers -- --version 24.18.0)"
 pnpm build:prebuild:napi
-pnpm build:prebuild:nodeabi
 pnpm test:optional
 ```
 
@@ -120,8 +117,8 @@ The supported optional prebuild target set is intentionally conservative:
 | Windows x86 MSVC (`win32-ia32-msvc`) | Supported | Supported | No 32-bit runtime | No 32-bit runtime |
 | Windows x64 MSVC (`win32-x64-msvc`) | Supported | Supported | Supported | Supported |
 
-Supported optional packages publish `napi-v9` plus Node-major-specific
-`nodeabi` binaries for Node 20, 22, 24, and 26. Linux musl is not published yet.
+Supported optional packages publish one `napi-v9` binary per platform, tested
+across Node 20, 22, 24, and 26. Linux musl is not published yet.
 Node.js stopped shipping 32-bit Windows binaries after v22, so `win32-ia32-msvc`
 covers only Node 20 and 22.
 See [docs/support-matrix.md](docs/support-matrix.md) and

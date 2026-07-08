@@ -39,10 +39,6 @@ encoded in filenames inside the platform package:
 
 ```text
 prebuilt/<platform>-napi-v9.node
-prebuilt/<platform>-nodeabi-v115.node
-prebuilt/<platform>-nodeabi-v127.node
-prebuilt/<platform>-nodeabi-v137.node
-prebuilt/<platform>-nodeabi-v147.node
 ```
 
 When changing the matrix, update package metadata, all matching
@@ -58,9 +54,8 @@ The main package loader:
 1. Computes the platform suffix.
 2. Loads `@esplus/node-addon-require-builtin-<platform>` when installed.
 3. Reads the platform package `prebuilds.json`.
-4. Tries a matching `nodeabi` binary first in `auto` mode.
-5. Falls back to `napi-v9`.
-6. Fails closed when no optional prebuild works. Published packages do not
+4. Loads the `napi-v9` binary in `auto` mode.
+5. Fails closed when no optional prebuild works. Published packages do not
    compile native sources at install time.
 
 Every native binding must return matching `backend` and `abi` values from
@@ -89,8 +84,8 @@ pnpm build:prebuilds
 pnpm test:optional
 ```
 
-Use `pnpm test:optional:nodeabi` after preparing headers to validate the
-Node-major-specific optional prebuild for the current runtime.
+Use `pnpm test:nodeabi` after preparing headers to validate the source-build
+nodeabi backend for the current runtime. Nodeabi binaries are not published.
 
 Generated `.node` files are ignored by git. Release automation should build
 them on the matching platform before publishing. Normal CI artifacts are

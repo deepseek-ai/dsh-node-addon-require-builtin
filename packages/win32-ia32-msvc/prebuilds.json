@@ -2,20 +2,6 @@
   "platform": "win32-ia32-msvc",
   "binaries": [
     {
-      "backend": "nodeabi",
-      "abi": "node-v115",
-      "binaryTag": "nodeabi-v115",
-      "node": "20",
-      "path": "prebuilt/win32-ia32-msvc-nodeabi-v115.node"
-    },
-    {
-      "backend": "nodeabi",
-      "abi": "node-v127",
-      "binaryTag": "nodeabi-v127",
-      "node": "22",
-      "path": "prebuilt/win32-ia32-msvc-nodeabi-v127.node"
-    },
-    {
       "backend": "napi",
       "abi": "napi-v9",
       "binaryTag": "napi-v9",
