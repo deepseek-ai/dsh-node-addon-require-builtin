@@ -82,6 +82,14 @@ Confirm the package metadata has public package names, concrete dependency
 versions, no local registry, and no generated files outside the intended `files`
 list.
 
+Also verify that the packed tarballs install cleanly with lifecycle scripts
+enabled:
+
+```sh
+node ./scripts/pack-release.mjs "$tmpdir"
+node ./scripts/verify-packed-install.mjs "$tmpdir"
+```
+
 ## Publish
 
 Use GitHub Actions for release builds so every native binary is built on its

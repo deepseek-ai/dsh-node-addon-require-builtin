@@ -30,7 +30,8 @@
     "release:commit": "node ./scripts/commit-release.mjs",
     "release:assemble-prebuilds": "node ./scripts/assemble-prebuilds.mjs",
     "release:verify": "node ./scripts/verify-release.mjs",
-    "release:pack": "node ./scripts/pack-release.mjs"
+    "release:pack": "node ./scripts/pack-release.mjs",
+    "release:verify-packed-install": "node ./scripts/verify-packed-install.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

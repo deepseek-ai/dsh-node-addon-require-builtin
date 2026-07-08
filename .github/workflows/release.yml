@@ -127,6 +127,9 @@ jobs:
       - name: Pack release tarballs
         run: node ./scripts/pack-release.mjs dist/npm
 
+      - name: Verify packed install
+        run: node ./scripts/verify-packed-install.mjs dist/npm
+
       - name: Upload npm tarballs
         uses: actions/upload-artifact@v4
         with:
