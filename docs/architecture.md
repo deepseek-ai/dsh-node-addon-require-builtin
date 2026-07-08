@@ -163,3 +163,6 @@ packages/darwin-arm64/prebuilt/darwin-arm64-nodeabi-v137.node
 ```
 
 Generated binaries are ignored by git and produced by local release or CI jobs.
+
+See [naming.md](naming.md) for project-wide environment variable, C++ symbol,
+native binary, and source-file naming conventions.

@@ -52,6 +52,8 @@ delimiter.
 
 ## Environment Variables
 
+See [naming.md](naming.md) for the project-wide naming convention.
+
 - `NARB_BACKEND=auto|napi|nodeabi`: backend preference.
 - `NARB_DISABLE_OPTIONAL_PACKAGE=1`: skip optional packages.
 - `NARB_DISABLE_LOCAL_BUILD=1`: skip local build fallback.

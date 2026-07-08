@@ -3,8 +3,8 @@
 This directory is a standalone verification project for comparing module cache
 invalidation strategies.
 
-It does not test whether `@esplus/node-addon-require-builtin` itself works. The addon
-has its own tests for that. This project compares HMR/cache invalidation
+It does not test whether `@esplus/node-addon-require-builtin` itself works. The
+addon has its own tests for that. This project compares HMR/cache invalidation
 strategies from the upstream POC and adds addon-based internal ESM loader access
 as another strategy in the same matrix.
 
