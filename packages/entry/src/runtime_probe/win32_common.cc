@@ -11,6 +11,13 @@
 #include <string>
 #include <string_view>
 #include <vector>
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 
 namespace esplus::node::require_builtin {
@@ -534,7 +541,7 @@ Result<GetterSymbol> ResolvePlatformBuiltinModuleRequireGetterFallback(
         "realm vptr does not point into a readable image region"));
   }
 
-  const size_t readable_slots = std::min(
+  const size_t readable_slots = (std::min)(
       kMaxWindowsRealmVtableScanSlots,
       (vptr_info.region_end - table_address) / sizeof(void*));
   const auto* table = static_cast<void* const*>(vptr.value());
