@@ -18,6 +18,7 @@ Published packages use a main package plus platform optional packages:
 
 ```text
 @esplus/node-addon-require-builtin
+@esplus/node-addon-require-builtin-loader
 @esplus/node-addon-require-builtin-darwin-arm64
 @esplus/node-addon-require-builtin-darwin-x64
 @esplus/node-addon-require-builtin-linux-arm64-gnu
@@ -25,7 +26,6 @@ Published packages use a main package plus platform optional packages:
 @esplus/node-addon-require-builtin-win32-arm64-msvc
 @esplus/node-addon-require-builtin-win32-ia32-msvc
 @esplus/node-addon-require-builtin-win32-x64-msvc
-@esplus/node-addon-require-builtin-loader
 ```
 
 The main package first tries the current platform optional package, then falls
