@@ -32,7 +32,7 @@ function discoverNodeBins(): string[] {
   return bins;
 }
 
-function run(node: string, args: string[]): void {
+function run(node: string, args: string[], extraEnv: Record<string, string> = {}): void {
   const label = `${path.basename(path.dirname(path.dirname(node)))} ${args.join(' ')}`;
   console.log(`\n== ${label}`);
   const result = spawnSync(node, args, {
@@ -43,6 +43,7 @@ function run(node: string, args: string[]): void {
       NARB_BACKEND: 'napi',
       NARB_EXPECTED_BACKEND: 'napi',
       NARB_DISABLE_OPTIONAL_PACKAGE: '1',
+      ...extraEnv,
     },
   });
   if (result.error) throw result.error;
@@ -50,6 +51,8 @@ function run(node: string, args: string[]): void {
     process.exit(result.status ?? 1);
   }
 }
+
+const PRODUCTS = ['require-builtin', 'internal-loader'];
 
 function main(): void {
   const bins = discoverNodeBins();
@@ -71,17 +74,25 @@ function main(): void {
 
   const buildRuntime = versions.get(20);
   if (!buildRuntime) throw new Error('missing Node 20 build runtime');
-  console.log(`\n## Build once with Node ${buildRuntime.version}`);
-  run(buildRuntime.node, ['--import', 'tsx', './scripts/build.ts']);
 
   console.log('\n## Getter decoder self-test');
   run(buildRuntime.node, ['--import', 'tsx', './scripts/test-getter-decoder.ts']);
 
-  for (const major of majors) {
-    const runtime = versions.get(major);
-    if (!runtime) throw new Error(`missing Node ${major} runtime`);
-    console.log(`\n## Test with Node ${runtime.version}`);
-    run(runtime.node, ['./test/backend.test.js']);
+  // Build and test each product family separately: build.ts writes to a
+  // family-specific output path chosen by NARB_PRODUCT, and backend.test.js
+  // picks the matching entry package from the same variable.
+  for (const product of PRODUCTS) {
+    console.log(`\n## Build ${product} with Node ${buildRuntime.version}`);
+    run(buildRuntime.node, ['--import', 'tsx', './scripts/build.ts'], {
+      NARB_PRODUCT: product,
+    });
+
+    for (const major of majors) {
+      const runtime = versions.get(major);
+      if (!runtime) throw new Error(`missing Node ${major} runtime`);
+      console.log(`\n## Test ${product} with Node ${runtime.version}`);
+      run(runtime.node, ['./test/backend.test.js'], { NARB_PRODUCT: product });
+    }
   }
 }
 
