@@ -27,12 +27,12 @@ namespace esplus::node::require_builtin {
 #if NARB_PRODUCT == NARB_PRODUCT_REQUIRE_BUILTIN
 constexpr std::string_view kProduct = "require-builtin";
 constexpr std::string_view kProductPackageName =
-    "@esplus/node-addon-require-builtin";
+    "node-addon-require-builtin";
 constexpr bool kEnforceWhitelist = false;
 #else
 constexpr std::string_view kProduct = "internal-loader";
 constexpr std::string_view kProductPackageName =
-    "@esplus/node-addon-internal-loader";
+    "node-addon-internal-loader";
 constexpr bool kEnforceWhitelist = true;
 #endif
 

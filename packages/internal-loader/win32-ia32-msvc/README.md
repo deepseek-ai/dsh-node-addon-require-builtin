@@ -1,8 +1,8 @@
-# @esplus/node-addon-internal-loader-win32-ia32-msvc
+# node-addon-internal-loader-win32-ia32-msvc
 
 Optional prebuilt native addon package for `win32-ia32-msvc` (32-bit x86).
 
-The main `@esplus/node-addon-internal-loader` package selects one binary from
+The main `node-addon-internal-loader` package selects one binary from
 this package at runtime using `prebuilds.json`.
 
 Node.js ships no 32-bit Windows runtime after v22, so this package targets

@@ -1,9 +1,9 @@
 import path from 'node:path';
 
-import type { BindingInfo, EntryApi } from '@esplus/node-addon-native-custom-loader';
+import type { BindingInfo, EntryApi } from 'node-addon-native-custom-loader';
 
 const { createEntryApi } =
-  require('@esplus/node-addon-native-custom-loader') as {
+  require('node-addon-native-custom-loader') as {
     createEntryApi(packageDir: string): EntryApi;
   };
 

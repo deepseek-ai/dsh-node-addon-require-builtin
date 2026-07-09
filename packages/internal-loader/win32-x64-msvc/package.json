@@ -1,7 +1,7 @@
 {
-  "name": "@esplus/node-addon-internal-loader-win32-x64-msvc",
+  "name": "node-addon-internal-loader-win32-x64-msvc",
   "version": "0.0.10",
-  "description": "Prebuilt win32-x64-msvc native addon package for @esplus/node-addon-internal-loader.",
+  "description": "Prebuilt win32-x64-msvc native addon package for node-addon-internal-loader.",
   "main": "./index.js",
   "publishConfig": {
     "access": "restricted"
@@ -22,7 +22,7 @@
     "prebuilt/"
   ],
   "dependencies": {
-    "@esplus/node-addon-native-custom-loader": "workspace:*"
+    "node-addon-native-custom-loader": "workspace:*"
   },
   "license": "MIT"
 }

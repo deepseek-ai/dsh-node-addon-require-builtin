@@ -1,5 +1,5 @@
 {
-  "name": "@esplus/node-addon-internal-loader",
+  "name": "node-addon-internal-loader",
   "version": "0.0.10",
   "type": "commonjs",
   "description": "Node-API addon with runtime probing for internal access (cjs/esm loader whitelist variant).",
@@ -32,15 +32,15 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@esplus/node-addon-native-custom-loader": "workspace:*"
+    "node-addon-native-custom-loader": "workspace:*"
   },
   "optionalDependencies": {
-    "@esplus/node-addon-internal-loader-darwin-arm64": "workspace:*",
-    "@esplus/node-addon-internal-loader-darwin-x64": "workspace:*",
-    "@esplus/node-addon-internal-loader-linux-arm64-gnu": "workspace:*",
-    "@esplus/node-addon-internal-loader-linux-x64-gnu": "workspace:*",
-    "@esplus/node-addon-internal-loader-win32-arm64-msvc": "workspace:*",
-    "@esplus/node-addon-internal-loader-win32-ia32-msvc": "workspace:*",
-    "@esplus/node-addon-internal-loader-win32-x64-msvc": "workspace:*"
+    "node-addon-internal-loader-darwin-arm64": "workspace:*",
+    "node-addon-internal-loader-darwin-x64": "workspace:*",
+    "node-addon-internal-loader-linux-arm64-gnu": "workspace:*",
+    "node-addon-internal-loader-linux-x64-gnu": "workspace:*",
+    "node-addon-internal-loader-win32-arm64-msvc": "workspace:*",
+    "node-addon-internal-loader-win32-ia32-msvc": "workspace:*",
+    "node-addon-internal-loader-win32-x64-msvc": "workspace:*"
   }
 }

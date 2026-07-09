@@ -11,11 +11,11 @@ Published npm packages use the `@esplus` scope. There are two product families
 and one shared loader package:
 
 ```text
-@esplus/node-addon-native-custom-loader
-@esplus/node-addon-require-builtin
-@esplus/node-addon-require-builtin-<platform>
-@esplus/node-addon-internal-loader
-@esplus/node-addon-internal-loader-<platform>
+node-addon-native-custom-loader
+node-addon-require-builtin
+node-addon-require-builtin-<platform>
+node-addon-internal-loader
+node-addon-internal-loader-<platform>
 ```
 
 Entry package names contain the public product capability. Platform package

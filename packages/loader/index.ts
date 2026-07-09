@@ -479,7 +479,7 @@ function tryRequireLocal(packageDir: string, binary: PrebuiltBinary): {
   );
 
   try {
-    const loadPath = materializedNativeBinaryPath(file, '@esplus/node-addon-native-custom-loader-local');
+    const loadPath = materializedNativeBinaryPath(file, 'node-addon-native-custom-loader-local');
     const binding = require(loadPath) as NativeBinding;
     validateLoadedBinding(binding, loadPath);
     Object.defineProperty(binding, 'bindingPath', {
