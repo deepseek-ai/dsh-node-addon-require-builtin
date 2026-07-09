@@ -44,7 +44,7 @@ function localBuildRelativePath() {
 function validationScript() {
   return `
     const trace = process.env.NARB_TRACE
-      ? (line) => require('node:fs').writeSync(2, '[dsh-probe] ' + line + '\\n')
+      ? (line) => require('node:fs').writeSync(2, '[NARB::TRACE] ' + line + '\\n')
       : () => {};
     try {
       trace('validation: requiring addon entry');
@@ -292,7 +292,7 @@ function validateLocalBuild() {
   if (shouldEcho) writeValidationOutput(result);
   if (result.status === 0) {
     if (shouldEcho) {
-      console.error('[dsh-probe] local build validation: ok');
+      console.error('[NARB::TRACE] local build validation: ok');
     }
     return;
   }

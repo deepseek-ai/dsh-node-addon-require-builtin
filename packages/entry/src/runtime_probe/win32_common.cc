@@ -28,6 +28,28 @@ constexpr size_t kMaxWindowsVtableCandidateTrace = 128;
 constexpr size_t kMinWindowsPerRealmGetterRunLength = 32;
 constexpr std::string_view kRequireBuiltinName = "requireBuiltin";
 
+// Minimum alignment of a function entry pointed at by a vtable slot. This is a
+// cheap pre-filter that discards vtable words which cannot be code targets
+// before they are decoded. It is the target architecture's instruction
+// alignment, NOT alignof(void*): AArch64 instructions are fixed 4-byte-aligned
+// words, so ARM64 function entries routinely land on 4-mod-8 addresses. The
+// per-realm field getters are tiny 16-byte leaf accessors packed contiguously
+// (16 % 8 == 0), so when their block starts on a 4-mod-8 boundary every getter
+// in it shares that residue; an 8-byte pointer-alignment gate then drops the
+// entire block and the scan finds nothing (observed on Node 26 win32-arm64,
+// while Node 22/24 happened to start the block 8-aligned). x86/x64 code has no
+// alignment requirement, but MSVC emits 16-byte-aligned functions there, so a
+// pointer-alignment gate is a sound filter for those targets.
+#if defined(_M_ARM64)
+constexpr uintptr_t kVtableCandidateAlignment = 4;
+#else
+constexpr uintptr_t kVtableCandidateAlignment = alignof(void*);
+#endif
+
+bool IsWindowsVtableCandidateAligned(uintptr_t address) {
+  return address != 0 && (address % kVtableCandidateAlignment) == 0;
+}
+
 struct WindowsSymbolAlias {
   std::string_view itanium;
   std::string_view msvc;
@@ -251,7 +273,7 @@ bool ResolveExecutableVtableCandidate(void* candidate,
                                       HMODULE expected_module,
                                       WindowsVtableScanStats* stats,
                                       WindowsAddressInfo* candidate_info) {
-  if (!IsPointerAligned(reinterpret_cast<uintptr_t>(candidate))) {
+  if (!IsWindowsVtableCandidateAligned(reinterpret_cast<uintptr_t>(candidate))) {
     stats->unaligned++;
     return false;
   }

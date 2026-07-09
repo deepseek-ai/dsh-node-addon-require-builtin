@@ -9,7 +9,7 @@ namespace esplus::node::require_builtin {
 namespace {
 
 constexpr const char* kTraceEnvVar = "NARB_TRACE";
-constexpr const char* kTracePrefix = "[dsh-probe] ";
+constexpr const char* kTracePrefix = "[NARB::TRACE] ";
 
 }  // namespace
 
