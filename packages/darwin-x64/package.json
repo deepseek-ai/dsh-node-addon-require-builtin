@@ -1,6 +1,6 @@
 {
   "name": "@esplus/node-addon-require-builtin-darwin-x64",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Prebuilt darwin-x64 native addon package for @esplus/node-addon-require-builtin.",
   "main": "./index.js",
   "publishConfig": {
