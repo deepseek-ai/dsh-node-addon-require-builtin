@@ -219,9 +219,6 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
-      - name: Upgrade npm for trusted publishing
-        run: npm install -g npm@latest
-
       - name: Download npm tarballs
         uses: actions/download-artifact@v4
         with:
