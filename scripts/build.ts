@@ -9,9 +9,14 @@ import {
 
 const BACKEND_NAPI = 'napi';
 const BACKEND_NODEABI = 'nodeabi';
+const PRODUCT_REQUIRE_BUILTIN = 'require-builtin';
+const PRODUCT_INTERNAL_LOADER = 'internal-loader';
 const BINARY_NAME = 'require_builtin.node';
 
 type NativeBackend = typeof BACKEND_NAPI | typeof BACKEND_NODEABI;
+type NativeProduct =
+  | typeof PRODUCT_REQUIRE_BUILTIN
+  | typeof PRODUCT_INTERNAL_LOADER;
 
 interface BuildTagOptions {
   napiVersion?: string;
@@ -19,9 +24,12 @@ interface BuildTagOptions {
 }
 
 const root = path.resolve(__dirname, '..');
-const packageRoot = path.join(root, 'packages', 'entry');
+const packageRoot = path.join(root, 'packages', 'native');
 const backend = normalizeBackend(
   process.env.NARB_BACKEND,
+);
+const product = normalizeProduct(
+  process.env.NARB_PRODUCT,
 );
 const napiVersion = process.env.NAPI_VERSION || '9';
 const buildOptions: BuildTagOptions = backend === BACKEND_NAPI
@@ -58,23 +66,32 @@ const commonSources = [
 const sources = [
   ...commonSources,
   path.join(
-    root,
-    'packages',
-    'entry',
+    packageRoot,
     'src',
     backend === 'napi' ? 'runtime_compat_napi.cc' : 'runtime_compat_nodeabi.cc',
   ),
 ];
 function buildOutputPath(): string {
+  // The product name doubles as the family directory under packages/.
+  const familyDir = path.join(root, 'packages', product);
+
   if (outputMode === 'build') {
-    return path.join(packageRoot, 'build', localBuildSubdir(backend, buildOptions), BINARY_NAME);
+    // Local builds land in the family's entry package so the loader's
+    // tryRequireLocal(entryDir) fallback finds them.
+    return path.join(
+      familyDir,
+      'entry',
+      'build',
+      localBuildSubdir(backend, buildOptions),
+      BINARY_NAME,
+    );
   }
 
   if (outputMode === 'prebuild') {
     const suffix = runtimeSuffix();
-    const packageDir = path.join(root, 'packages', suffix);
+    const packageDir = path.join(familyDir, suffix);
     if (!fs.existsSync(path.join(packageDir, 'package.json'))) {
-      throw new Error(`unsupported prebuild package platform: ${suffix}`);
+      throw new Error(`unsupported prebuild package platform: ${product}/${suffix}`);
     }
     return path.join(
       packageDir,
@@ -96,8 +113,20 @@ function normalizeBackend(value?: string): NativeBackend {
   throw new Error(`unsupported native backend: ${value}`);
 }
 
+function normalizeProduct(value?: string): NativeProduct {
+  const product = value || PRODUCT_INTERNAL_LOADER;
+  if (product === PRODUCT_REQUIRE_BUILTIN || product === PRODUCT_INTERNAL_LOADER) {
+    return product;
+  }
+  throw new Error(`unsupported native product: ${value}`);
+}
+
 function backendMacro(selectedBackend: NativeBackend): '1' | '2' {
   return selectedBackend === BACKEND_NAPI ? '1' : '2';
+}
+
+function productMacro(selectedProduct: NativeProduct): '1' | '2' {
+  return selectedProduct === PRODUCT_REQUIRE_BUILTIN ? '1' : '2';
 }
 
 function buildAbiTag(
@@ -190,6 +219,7 @@ function commonArgs(includeDir: string): string[] {
     '-fvisibility=hidden',
     '-DNAPI_VERSION=' + napiVersion,
     '-DNARB_BACKEND=' + backendMacro(backend),
+    '-DNARB_PRODUCT=' + productMacro(product),
     '-DNODE_ADDON_API_DISABLE_CPP_EXCEPTIONS',
     '-DNODE_GYP_MODULE_NAME=require_builtin',
     ...nativeIncludeArgs(includeDir),
@@ -242,16 +272,18 @@ function buildWithNodeGyp(): void {
     '--enable-thin-lto=false',
     '--lto-jobs=',
   ];
-  console.log(`Building ${relativePathForLog(root, output)} (${backend}) with node-gyp`);
+  console.log(`Building ${relativePathForLog(root, output)} (${backend}/${product}) with node-gyp`);
   const result = spawnSync(process.execPath, gypArgs, {
     cwd: packageRoot,
     stdio: 'inherit',
     env: {
       ...process.env,
       NARB_BACKEND: backend,
+      NARB_PRODUCT: product,
       GYP_DEFINES: [
         process.env.GYP_DEFINES,
         `narb_backend=${backend}`,
+        `narb_product=${product}`,
         'enable_lto=false',
         'enable_thin_lto=false',
         'lto_jobs=',

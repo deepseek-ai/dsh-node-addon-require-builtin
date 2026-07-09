@@ -1,8 +1,11 @@
 # Internal Module Allowlist
 
-This package exposes only a small allowlist of Node internal modules. The list
-is enforced in the native addon before Node's private `requireBuiltin()` value is
-called.
+`@esplus/node-addon-internal-loader` exposes only a small allowlist of Node
+internal modules. The list is enforced in the native addon before Node's
+private `requireBuiltin()` value is called.
+
+`@esplus/node-addon-require-builtin` is the unrestricted product family. It does
+not use this allowlist; `requireBuiltin(id)` forwards any string id to Node.
 
 ## Supported Internal Modules
 
@@ -12,8 +15,9 @@ called.
 | `internal/modules/esm/loader` | Supported | `>=20.0.0 <21.0.0`, `>=22.0.0 <23.0.0`, `>=24.0.0 <25.0.0`, `>=26.0.0 <27.0.0` |
 
 Node odd-numbered release lines and other internal module ids are not supported
-by the published support matrix. A request for any module id outside this list
-throws an `Unsupported/disallowed-target` error.
+by the `internal-loader` support matrix. A request for any module id outside
+this list throws an `Unsupported/disallowed-target` error in the
+`internal-loader` product.
 
 ## Version And ABI Coverage
 
@@ -32,7 +36,7 @@ does not publish 32-bit Windows runtimes after v22.
 
 ## Support Meaning
 
-Supported means the addon may load the internal module when all of these
+Supported means `internal-loader` may load the internal module when all of these
 conditions are true:
 
 - The current platform and Node line are in the published support matrix.
@@ -40,7 +44,7 @@ conditions are true:
 - The requested module id is listed above.
 - The target module returns exports from Node's genuine internal module cache.
 
-This package does not make these Node internals public API. Export shapes,
+These packages do not make these Node internals public API. Export shapes,
 object identities, and behaviors remain Node implementation details and may
 change across Node releases.
 

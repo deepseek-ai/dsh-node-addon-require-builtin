@@ -2,31 +2,11 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('..', import.meta.url));
-const packagesRoot = path.join(root, 'packages');
-
-function readJson(file) {
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
-}
-
-function packageDirs() {
-  const platformDirs = fs.readdirSync(packagesRoot)
-    .filter((name) => name !== 'entry' && name !== 'loader')
-    .filter((name) => fs.existsSync(path.join(packagesRoot, name, 'package.json')))
-    .sort()
-    .map((name) => path.join('packages', name));
-
-  return [
-    'packages/loader',
-    ...platformDirs,
-    'packages/entry',
-  ];
-}
+import { allPublishDirs, readJson, root } from './packages.mjs';
 
 function verifyVersions() {
-  const packages = packageDirs().map((dir) => ({
+  const packages = allPublishDirs().map((dir) => ({
     dir,
     manifest: readJson(path.join(root, dir, 'package.json')),
   }));
@@ -55,7 +35,7 @@ function verifyVersions() {
 }
 
 function verifyPrebuilds() {
-  for (const dir of packageDirs()) {
+  for (const dir of allPublishDirs()) {
     const prebuildsFile = path.join(root, dir, 'prebuilds.json');
     if (!fs.existsSync(prebuildsFile)) continue;
 

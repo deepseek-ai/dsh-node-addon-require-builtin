@@ -7,6 +7,7 @@
   "include": ["scripts/**/*.ts"],
   "references": [
     { "path": "./packages/loader" },
-    { "path": "./packages/entry" }
+    { "path": "./packages/require-builtin/entry" },
+    { "path": "./packages/internal-loader/entry" }
   ]
 }

@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('..', import.meta.url));
+import { entryDirFor, FAMILIES, readJson, root } from './packages.mjs';
+
 const bump = process.argv[2];
 
 function run(command, args) {
@@ -21,20 +22,6 @@ function run(command, args) {
   }
 }
 
-function readJsonFromNode(file, expression) {
-  const script = `const value = require('./${file}'); console.log(${expression});`;
-  const result = spawnSync(process.execPath, ['-e', script], {
-    cwd: root,
-    encoding: 'utf8',
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    process.stderr.write(result.stderr);
-    process.exit(result.status ?? 1);
-  }
-  return result.stdout.trim();
-}
-
 if (!bump) {
   console.error('Usage: pnpm release:commit <major|minor|patch|x.y.z>');
   process.exit(1);
@@ -42,12 +29,16 @@ if (!bump) {
 
 run('node', ['./scripts/bump-release.mjs', bump]);
 
-const version = readJsonFromNode('packages/entry/package.json', 'value.version');
+// All published packages share the bumped version; read it from the first
+// family's entry manifest.
+const version = readJson(
+  path.join(root, entryDirFor(FAMILIES[0]), 'package.json'),
+).version;
 run('git', [
   'add',
   'package.json',
   'hmr-comparison/package.json',
-  'packages/*/package.json',
+  'packages/**/package.json',
   'pnpm-lock.yaml',
 ]);
 run('git', ['commit', '-m', `release: ${version}`]);

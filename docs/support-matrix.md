@@ -21,7 +21,8 @@ ranges for each Node major.
 
 ## Platform x Node Matrix
 
-Supported optional prebuild packages:
+Both product families publish the same supported optional prebuild package
+matrix:
 
 | Platform suffix | Node 20 | Node 22 | Node 24 | Node 26 |
 |---|---|---|---|---|
@@ -37,7 +38,7 @@ Node.js stopped publishing 32-bit Windows (`win-x86`) binaries after v22, so
 `win32-ia32-msvc` is limited to Node 20 and 22; there is no v24/v26 32-bit
 runtime to build against or test on.
 
-Published backend artifacts:
+Published backend artifacts for each product family:
 
 | Platform suffix | Optional package backend artifacts |
 |---|---|
@@ -57,8 +58,8 @@ Not published yet:
 | `linux-x64-musl` | musl getter parser not implemented |
 
 Supported platform packages are exercised in CI with N-API optional prebuild
-builds across supported Node majors, optional package loading, repository source
-builds, nodeabi source-build validation, and
+builds across supported Node majors, both product families, optional package
+loading, repository source builds, nodeabi source-build validation, and
 require-parity against the genuine internals.
 
 Unsupported runtimes should fail closed with diagnostics rather than loading an

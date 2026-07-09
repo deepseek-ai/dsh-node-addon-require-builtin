@@ -9,13 +9,14 @@
 // runtime state directly, and this test proves that probe lands on exactly the
 // object Node would hand out.
 const assert = require('node:assert/strict');
+const { entryPackagePath } = require('./product.js');
 
 assert.ok(
   process.execArgv.includes('--expose-internals'),
   'run this test with --expose-internals so the genuine internals are comparable',
 );
 
-const addon = require('../packages/entry');
+const addon = require(entryPackagePath());
 
 const cases = [
   'internal/modules/esm/loader',

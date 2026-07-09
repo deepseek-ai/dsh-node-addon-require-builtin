@@ -1,0 +1,12 @@
+{
+  "platform": "linux-arm64-gnu",
+  "binaries": [
+    {
+      "backend": "napi",
+      "abi": "napi-v9",
+      "binaryTag": "napi-v9",
+      "node": ">=20",
+      "path": "prebuilt/linux-arm64-gnu-napi-v9.node"
+    }
+  ]
+}

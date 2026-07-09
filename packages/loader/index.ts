@@ -39,6 +39,7 @@ interface NativeBinding {
 
 interface NativeBindingInfo {
   mode: string;
+  product: string;
   backend: string;
   abi: string;
 }
@@ -94,13 +95,13 @@ function nativeCacheRoot(): string {
   if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
     return path.join(
       process.env.LOCALAPPDATA,
-      'node-addon-require-builtin',
+      'node-addon-native-custom-loader',
       'native-cache',
     );
   }
 
   const uid = typeof process.getuid === 'function' ? String(process.getuid()) : 'nouid';
-  return path.join(os.tmpdir(), `node-addon-require-builtin-${uid}`, 'native-cache');
+  return path.join(os.tmpdir(), `node-addon-native-custom-loader-${uid}`, 'native-cache');
 }
 
 function sha256(data: Buffer): string {
@@ -478,7 +479,7 @@ function tryRequireLocal(packageDir: string, binary: PrebuiltBinary): {
   );
 
   try {
-    const loadPath = materializedNativeBinaryPath(file, '@esplus/node-addon-require-builtin-local');
+    const loadPath = materializedNativeBinaryPath(file, '@esplus/node-addon-native-custom-loader-local');
     const binding = require(loadPath) as NativeBinding;
     validateLoadedBinding(binding, loadPath);
     Object.defineProperty(binding, 'bindingPath', {
@@ -598,4 +599,56 @@ export function localBindingPath(packageDir: string, selectedBackend: string): s
     `${abi}-${platformPackageSuffix()}`,
     BINARY_NAME,
   );
+}
+
+export interface BindingInfo extends NativeBindingInfo {
+  bindingPath: string;
+  bindingSource: string;
+  localBindingPath: string;
+  optionalPackageName: string;
+  optionalBinaryRelativePath: string;
+  platformPackageSuffix: string;
+}
+
+export interface EntryApi {
+  requireBuiltin(moduleId: string): unknown;
+  isAllowedInternalId(moduleId: string): boolean;
+  getBindingInfo(): Readonly<BindingInfo>;
+}
+
+// Builds the public entry API for a family package. The package name (its own
+// package.json `name`) is the prefix used to resolve the per-platform optional
+// package, so both families share this one implementation and their entry
+// index.ts becomes a single delegating call.
+export function createEntryApi(packageDir: string): EntryApi {
+  const packagePrefix = require(path.join(packageDir, 'package.json')).name as string;
+  const loaded = loadEntry({ packageDir, packagePrefix });
+  const binding = loaded.binding;
+  let bindingInfo: Readonly<BindingInfo> | undefined;
+
+  return {
+    requireBuiltin(moduleId: string): unknown {
+      return binding.requireBuiltin(moduleId);
+    },
+    isAllowedInternalId(moduleId: string): boolean {
+      return binding.isAllowedInternalId(moduleId);
+    },
+    getBindingInfo(): Readonly<BindingInfo> {
+      if (bindingInfo) return bindingInfo;
+      const nativeInfo = binding.getNativeBindingInfo();
+      bindingInfo = Object.freeze({
+        mode: nativeInfo.mode,
+        product: nativeInfo.product,
+        backend: nativeInfo.backend,
+        abi: nativeInfo.abi,
+        bindingPath: loaded.path,
+        bindingSource: loaded.source,
+        localBindingPath: localBindingPath(packageDir, nativeInfo.backend),
+        optionalPackageName: optionalPackageName(packagePrefix),
+        optionalBinaryRelativePath: optionalBinaryRelativePath(nativeInfo.backend),
+        platformPackageSuffix: platformPackageSuffix(),
+      });
+      return bindingInfo;
+    },
+  };
 }

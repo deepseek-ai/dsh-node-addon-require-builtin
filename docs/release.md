@@ -15,8 +15,9 @@ pnpm release:bump 0.1.0
 ```
 
 The helper updates the root workspace package, `hmr-comparison`, and every
-published package under `packages/` to one version, refreshes the lockfile with
-`--ignore-scripts --lockfile-only`, and runs `release:verify`.
+published package returned by `scripts/packages.mjs` to one version, refreshes
+the lockfile with `--ignore-scripts --lockfile-only`, and runs
+`release:verify`.
 
 Keep `workspace:*` dependencies in source. pnpm converts them to concrete
 versions during pack/publish.
@@ -30,7 +31,9 @@ Example:
 
 ```sh
 pnpm release:bump patch
-git add package.json hmr-comparison/package.json packages/*/package.json pnpm-lock.yaml
+git add package.json hmr-comparison/package.json packages/loader/package.json \
+  packages/require-builtin/*/package.json \
+  packages/internal-loader/*/package.json pnpm-lock.yaml
 git commit -m "Release 0.0.2"
 git tag v0.0.2
 ```
@@ -74,13 +77,16 @@ platform.
 
 ```sh
 tmpdir="$(mktemp -d)"
-pnpm --dir packages/entry pack --pack-destination "$tmpdir"
-tar -xOf "$tmpdir"/*.tgz package/package.json
+pnpm release:pack "$tmpdir"
+first="$(head -n 1 "$tmpdir/publish-order.txt")"
+tar -xOf "$tmpdir/$first" package/package.json
 ```
 
 Confirm the package metadata has public package names, concrete dependency
-versions, no local registry, and no generated files outside the intended `files`
-list.
+versions, no local registry, and no generated files outside the intended
+`files` lists. The release pack command writes `publish-order.txt`; it should
+contain the shared loader first, then each family's platform packages followed
+by that family's entry package.
 
 Also verify that the packed tarballs install cleanly with lifecycle scripts
 enabled:
@@ -100,9 +106,10 @@ matching platform. The `Release` workflow is manual:
 2. Create and push a `vX.Y.Z` tag that matches the package versions.
 3. Run the same workflow from that tag with `publish=true`.
 
-The workflow builds the full set declared by every `packages/<platform>/prebuilds.json`,
-packs tarballs in publish order, then publishes only from the final tarballs.
-It does not reuse normal CI artifacts for publishing.
+The workflow builds the full set declared by every
+`packages/<family>/<platform>/prebuilds.json`, packs tarballs in publish order,
+then publishes only from the final tarballs. It does not reuse normal CI
+artifacts for publishing.
 
 Use npm's default public registry unless a release explicitly targets another
 registry. The workflow supports npm trusted publishing through GitHub OIDC; if

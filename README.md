@@ -1,24 +1,27 @@
-# @esplus/node-addon-require-builtin
+# Node addon internal require products
 
-Node-API addon that obtains Node's internal `requireBuiltin()`
-without starting Node with `--expose-internals`.
+Node-API addons that obtain Node's internal `requireBuiltin()` without starting
+Node with `--expose-internals`.
 
-This is not a pure public Node-API implementation. The addon is loaded through a
-stable N-API v9 entry point, but the useful work probes private Node/V8 runtime
-state and validates the result at runtime. If a runtime does not match the
-expected invariants, the addon must fail closed instead of guessing offsets.
+These are not pure public Node-API implementations. Each addon is loaded
+through a stable N-API v9 entry point, but the useful work probes private
+Node/V8 runtime state and validates the result at runtime. If a runtime does
+not match the expected invariants, the addon must fail closed instead of
+guessing offsets.
 
 ## Install
 
 ```sh
+npm install @esplus/node-addon-internal-loader
+# or
 npm install @esplus/node-addon-require-builtin
 ```
 
-Published packages use a main package plus platform optional packages:
+Published packages use two product families plus one shared loader package:
 
 ```text
+@esplus/node-addon-native-custom-loader
 @esplus/node-addon-require-builtin
-@esplus/node-addon-require-builtin-loader
 @esplus/node-addon-require-builtin-darwin-arm64
 @esplus/node-addon-require-builtin-darwin-x64
 @esplus/node-addon-require-builtin-linux-arm64-gnu
@@ -26,40 +29,71 @@ Published packages use a main package plus platform optional packages:
 @esplus/node-addon-require-builtin-win32-arm64-msvc
 @esplus/node-addon-require-builtin-win32-ia32-msvc
 @esplus/node-addon-require-builtin-win32-x64-msvc
+@esplus/node-addon-internal-loader
+@esplus/node-addon-internal-loader-darwin-arm64
+@esplus/node-addon-internal-loader-darwin-x64
+@esplus/node-addon-internal-loader-linux-arm64-gnu
+@esplus/node-addon-internal-loader-linux-x64-gnu
+@esplus/node-addon-internal-loader-win32-arm64-msvc
+@esplus/node-addon-internal-loader-win32-ia32-msvc
+@esplus/node-addon-internal-loader-win32-x64-msvc
 ```
 
-The main package requires a CI-validated current-platform optional package. If
-no compatible optional prebuild is available, installation fails closed instead
-of compiling an unvalidated local binary.
+Each entry package requires a CI-validated current-platform optional package.
+If no compatible optional prebuild is available, installation fails closed
+instead of compiling an unvalidated local binary.
 
 ## Usage
 
-```js
-const internalAddon = require('@esplus/node-addon-require-builtin');
+Use `@esplus/node-addon-internal-loader` when only the CommonJS and ESM loader
+internals are needed:
 
-const esmLoader = internalAddon.requireBuiltin('internal/modules/esm/loader');
+```js
+const internalLoader = require('@esplus/node-addon-internal-loader');
+
+const esmLoader = internalLoader.requireBuiltin('internal/modules/esm/loader');
 const cascadedLoader = esmLoader.getOrInitializeCascadedLoader();
 ```
 
-The public API is intentionally small:
+Use `@esplus/node-addon-require-builtin` when unrestricted internal builtin
+loading is required:
 
-- `requireBuiltin(moduleId)`: returns an allowlisted internal module.
+```js
+const requireBuiltinAddon = require('@esplus/node-addon-require-builtin');
+
+const realm = requireBuiltinAddon.requireBuiltin('internal/bootstrap/realm');
+```
+
+Both entry packages expose the same small API:
+
+- `requireBuiltin(moduleId)`: returns the selected internal module.
 - `isAllowedInternalId(moduleId)`: returns whether `moduleId` is loadable.
 - `getBindingInfo()`: lazily returns binding diagnostics such as `mode`,
-  `backend`, `abi`, `bindingSource`, and `bindingPath`.
+  `product`, `backend`, `abi`, `bindingSource`, and `bindingPath`.
 
-By default, only `internal/modules/cjs/loader` and
-`internal/modules/esm/loader` are allowlisted. The allowlist is enforced in the
-native addon before calling Node's internal `requireBuiltin()`.
+`@esplus/node-addon-internal-loader` only allows
+`internal/modules/cjs/loader` and `internal/modules/esm/loader`; the allowlist
+is enforced in the native addon before calling Node's internal
+`requireBuiltin()`. `@esplus/node-addon-require-builtin` does not restrict
+module ids: `isAllowedInternalId()` always returns `true`, and
+`requireBuiltin(id)` forwards any string id to Node.
 See [docs/internal-modules.md](docs/internal-modules.md) for the allowlist and
 supported Node version ranges.
 
-Treat returned internal modules as unstable Node implementation details. This
-package does not make Node internals public API.
+Treat returned internal modules as unstable Node implementation details. These
+packages do not make Node internals public API.
 
 ## Backends
 
-The native implementation has two backend dimensions:
+The native implementation has one product dimension and one backend dimension:
+
+Products:
+
+- `internal-loader`: default product. It enforces the CJS/ESM loader allowlist.
+- `require-builtin`: unrestricted product. It forwards any string id to Node's
+  builtin require.
+
+Backends:
 
 - `napi`: default release backend. It builds one `napi-v9` binary per supported
   platform/arch and discovers private Node/V8 state at runtime.
@@ -68,7 +102,8 @@ The native implementation has two backend dimensions:
 
 The published loader defaults to `auto`, which resolves to the current
 platform's `napi-v9` optional prebuild. Set `NARB_BACKEND=napi` to force that
-backend.
+backend. Source builds and product-specific tests use
+`NARB_PRODUCT=internal-loader` or `NARB_PRODUCT=require-builtin`.
 
 ## Development
 
@@ -80,9 +115,11 @@ pnpm test
 ```
 
 `pnpm build` builds TypeScript entrypoints and the N-API native addon into
-`packages/entry/build/`. Source builds are a repository development and CI
-workflow only; published packages do not include native sources for install-time
-fallback builds.
+`packages/internal-loader/entry/build/` by default. Set
+`NARB_PRODUCT=require-builtin` to build the unrestricted product into
+`packages/require-builtin/entry/build/`. Source builds are a repository
+development and CI workflow only; published packages do not include native
+sources for install-time fallback builds.
 
 For backend comparison with official Node.js public headers:
 
@@ -117,10 +154,10 @@ The supported optional prebuild target set is intentionally conservative:
 | Windows x86 MSVC (`win32-ia32-msvc`) | Supported | Supported | No 32-bit runtime | No 32-bit runtime |
 | Windows x64 MSVC (`win32-x64-msvc`) | Supported | Supported | Supported | Supported |
 
-Supported optional packages publish one `napi-v9` binary per platform, tested
-across Node 20, 22, 24, and 26. Linux musl is not published yet.
-Node.js stopped shipping 32-bit Windows binaries after v22, so `win32-ia32-msvc`
-covers only Node 20 and 22.
+Both product families publish one `napi-v9` binary per supported platform,
+tested across Node 20, 22, 24, and 26. Linux musl is not published yet. Node.js
+stopped shipping 32-bit Windows binaries after v22, so `win32-ia32-msvc` covers
+only Node 20 and 22.
 See [docs/support-matrix.md](docs/support-matrix.md) and
 [docs/internal-modules.md](docs/internal-modules.md).
 

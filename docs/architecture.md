@@ -1,16 +1,21 @@
 # Architecture
 
-`@esplus/node-addon-require-builtin` is a Node native addon that obtains the bootstrap
-`requireBuiltin()` function from the current Node `Realm` and exposes a small JS
-API around it.
+This repository publishes two Node native addon product families that obtain the
+bootstrap `requireBuiltin()` function from the current Node `Realm` and expose a
+small JS API around it:
 
-The addon has a stable public loading shell, but its core behavior is private
-runtime probing:
+- `@esplus/node-addon-internal-loader`: whitelisted access to the CJS and ESM
+  loader internals.
+- `@esplus/node-addon-require-builtin`: unrestricted forwarding to Node's
+  builtin require.
+
+Both products have a stable public loading shell, but their core behavior is
+private runtime probing:
 
 ```text
-JS entry / optional package loader
+JS entry package / shared optional package loader
   -> Node-API addon entry
-  -> requireBuiltin decision flow
+  -> product policy + requireBuiltin decision flow
   -> backend-specific runtime context adapter
        -> napi backend
        -> nodeabi backend
@@ -24,30 +29,35 @@ JS entry / optional package loader
 
 ## JS Loader Layer
 
-The published main package loads one native binary.
+Each published entry package loads one native binary through
+`@esplus/node-addon-native-custom-loader`. The entry packages call
+`createEntryApi(packageDir)`, so the shared loader derives product and package
+names from the installed entry package instead of hardcoding one family.
 
 Selection order:
 
-1. Resolve the current platform suffix, such as `darwin-arm64` or
+1. Resolve the entry package name and product family.
+2. Resolve the current platform suffix, such as `darwin-arm64` or
    `linux-x64-gnu`.
-2. Try the matching platform optional package unless
+3. Try the matching platform optional package unless
    `NARB_DISABLE_OPTIONAL_PACKAGE=1`.
-3. In the optional package, load the `napi-v9` binary for the current platform.
-4. If no optional package binary works, fail closed. Published packages do not
+4. In the optional package, load the `napi-v9` binary for the current platform.
+5. If no optional package binary works, fail closed. Published packages do not
    compile native sources at install time.
 
 `NARB_BACKEND=napi|nodeabi|auto` controls backend preference in development.
-`auto` is the default.
+`auto` is the default. `NARB_PRODUCT=internal-loader|require-builtin` selects
+the native product for source builds; the default is `internal-loader`.
 
 ## Native API Layer
 
-`packages/entry/src/node_api_addon.cc` exports:
+`packages/native/src/node_api_addon.cc` exports:
 
 - `requireBuiltin(moduleId)`
 - `isAllowedInternalId(moduleId)`
 - `getNativeBindingInfo()`
 
-The JS entry package re-exports only `requireBuiltin(moduleId)`,
+Each JS entry package re-exports only `requireBuiltin(moduleId)`,
 `isAllowedInternalId(moduleId)`, and a lazy `getBindingInfo()` wrapper around
 native and loader metadata. It does not expose `probe()` directly.
 
@@ -62,22 +72,23 @@ binary path.
 
 ## Probe Decision Flow
 
-`packages/entry/src/require_builtin_probe.cc` owns the backend-independent
+`packages/native/src/require_builtin_probe.cc` owns the backend-independent
 control flow:
 
 1. Ask the selected runtime adapter for a candidate `requireBuiltin` value.
 2. Verify the JS function name is `requireBuiltin`.
 3. Smoke test `requireBuiltin('internal/bootstrap/realm')`.
 4. Verify the realm export self-reference points back to the same function.
-5. Reject module ids outside the documented internal module allowlist.
+5. Apply product policy to the requested module id.
 6. Load the selected target internal module and record whether it returned
    exports. The getter does not inspect target export properties.
 
 Target-load exceptions are converted into clear unsupported errors with
-diagnostics. The allowlist is enforced in C++ before the private
-`requireBuiltin()` value is resolved or called. See
-[internal-modules.md](internal-modules.md) for the supported module ids and Node
-version ranges.
+diagnostics. For `internal-loader`, the CJS/ESM loader allowlist is enforced in
+C++ before the private `requireBuiltin()` value is called. For
+`require-builtin`, `isAllowedInternalId()` always returns `true` and any string
+id is forwarded to Node. See [internal-modules.md](internal-modules.md) for the
+whitelisted module ids and Node version ranges.
 
 ## Runtime Backends
 
@@ -113,7 +124,7 @@ Constraints:
 
 ## Shared Private Probe
 
-`packages/entry/src/runtime_probe/helper.cc` receives an opaque `Realm*` from
+`packages/native/src/runtime_probe/helper.cc` receives an opaque `Realm*` from
 the backend and performs the private checks:
 
 - Resolve `node::PrincipalRealm::builtin_module_require() const` dynamically.
@@ -154,19 +165,20 @@ implemented and CI-validated.
 Local development output:
 
 ```text
-packages/entry/build/<backend>/<abi>-<platform>/require_builtin.node
+packages/<family>/entry/build/<backend>/<abi>-<platform>/require_builtin.node
 ```
 
 Platform prebuild output:
 
 ```text
-packages/<platform>/prebuilt/<platform>-<binaryTag>.node
+packages/<family>/<platform>/prebuilt/<platform>-<binaryTag>.node
 ```
 
 Examples:
 
 ```text
-packages/darwin-arm64/prebuilt/darwin-arm64-napi-v9.node
+packages/internal-loader/entry/build/napi/napi-v9-darwin-arm64/require_builtin.node
+packages/require-builtin/darwin-arm64/prebuilt/darwin-arm64-napi-v9.node
 ```
 
 Generated binaries are ignored by git and produced by local release or CI jobs.

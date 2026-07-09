@@ -1,11 +1,8 @@
 #!/usr/bin/env node
 
-import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('..', import.meta.url));
-const packagesRoot = path.join(root, 'packages');
+import { FAMILIES, platformDirsFor, readJson, root } from './packages.mjs';
 
 const RUNNERS = {
   'darwin-arm64': 'macos-15',
@@ -25,34 +22,25 @@ const BUILD_NODE = {
   'win32-ia32-msvc': 22,
 };
 
-function readJson(file) {
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
-}
-
-function platformDirs() {
-  return fs.readdirSync(packagesRoot)
-    .filter((name) => name !== 'entry' && name !== 'loader')
-    .filter((name) => fs.existsSync(path.join(packagesRoot, name, 'prebuilds.json')))
-    .sort();
-}
-
-function platformManifest(platform) {
-  return readJson(path.join(packagesRoot, platform, 'prebuilds.json'));
-}
-
-function napiBinary(platform) {
-  const binary = platformManifest(platform).binaries.find((item) => item.backend === 'napi');
-  if (!binary) throw new Error(`missing napi binary declaration for ${platform}`);
+function napiBinary(dir) {
+  const manifest = readJson(path.join(root, dir, 'prebuilds.json'));
+  const binary = manifest.binaries.find((item) => item.backend === 'napi');
+  if (!binary) throw new Error(`missing napi binary declaration for ${dir}`);
   return binary;
 }
 
-function platformEntry(platform) {
+function platformEntry(family, dir) {
+  const platform = path.basename(dir);
   const entry = {
+    family,
     platform,
     runner: RUNNERS[platform],
     build_node: BUILD_NODE[platform] || 24,
-    filename: path.basename(napiBinary(platform).path),
-    artifact: `prebuild-${platform}-napi-v9`,
+    filename: path.basename(napiBinary(dir).path),
+    // Artifact names carry the family so both variants' per-platform builds
+    // stay distinct through upload/download.
+    artifact: `prebuild-${family}-${platform}-napi-v9`,
+    prebuilt_path: `${dir}/prebuilt`,
   };
   if (!entry.runner) {
     throw new Error(`missing GitHub runner for platform: ${platform}`);
@@ -64,12 +52,28 @@ function platformEntry(platform) {
 }
 
 function platformMatrix() {
-  return { include: platformDirs().map((platform) => platformEntry(platform)) };
+  const include = [];
+  for (const family of FAMILIES) {
+    for (const dir of platformDirsFor(family)) {
+      include.push(platformEntry(family, dir));
+    }
+  }
+  return { include };
+}
+
+function hmrPlatformMatrix() {
+  // The HMR harness exercises ESM loader cache invalidation, so it intentionally
+  // runs against the whitelisted internal-loader product only.
+  const family = 'internal-loader';
+  return {
+    include: platformDirsFor(family).map((dir) => platformEntry(family, dir)),
+  };
 }
 
 const target = process.argv[2];
 const matrices = {
   'ci-platforms': platformMatrix,
+  'ci-hmr-platforms': hmrPlatformMatrix,
   'release-platforms': platformMatrix,
 };
 
