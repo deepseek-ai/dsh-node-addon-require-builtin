@@ -7,22 +7,26 @@ in [packaging.md](packaging.md), runtime structure lives in
 
 ## npm Packages
 
-The public npm package family uses the `@esplus` scope and the
-`node-addon-require-builtin` package prefix:
+Published npm packages use the `@esplus` scope. There are two product families
+and one shared loader package:
 
 ```text
+@esplus/node-addon-native-custom-loader
 @esplus/node-addon-require-builtin
-@esplus/node-addon-require-builtin-loader
 @esplus/node-addon-require-builtin-<platform>
+@esplus/node-addon-internal-loader
+@esplus/node-addon-internal-loader-<platform>
 ```
 
-Platform package names contain platform information only. Backend and ABI stay
-inside `prebuilds.json` and prebuilt filenames.
+Entry package names contain the public product capability. Platform package
+names contain the product family plus platform information. Backend and ABI
+stay inside `prebuilds.json` and prebuilt filenames.
 
 ## Environment Variables
 
 Runtime and build environment variables use the short project prefix `NARB_`,
-standing for Node Addon Require Builtin:
+standing for Node Addon Require Builtin. The prefix is kept stable across both
+published product families:
 
 ```text
 NARB_BACKEND
@@ -31,8 +35,10 @@ NARB_DISABLE_OPTIONAL_PACKAGE
 NARB_DISABLE_LOCAL_BUILD
 NARB_DISABLE_NATIVE_CACHE
 NARB_EXPECTED_BACKEND
+NARB_EXPECTED_PRODUCT
 NARB_HEADERS_CACHE
 NARB_NATIVE_CACHE_DIR
+NARB_PRODUCT
 NARB_TRACE
 ```
 
@@ -49,6 +55,9 @@ NARB_BACKEND_NODEABI
 NARB_BACKEND_NODEABI_VERIFY
 NARB_MEMBER_ABI
 NARB_PRINTF_FORMAT
+NARB_PRODUCT
+NARB_PRODUCT_INTERNAL_LOADER
+NARB_PRODUCT_REQUIRE_BUILTIN
 ```
 
 C++ headers use `#pragma once` instead of include guards.

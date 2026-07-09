@@ -1,7 +1,7 @@
 # AGENTS.md
 
-This repository builds an native addon for accessing Node's
-internal `requireBuiltin()` through runtime probing.
+This repository builds native addons for accessing Node's internal
+`requireBuiltin()` through runtime probing.
 
 ## Pre-release stance
 
@@ -28,13 +28,16 @@ them.
 ## Repository layout
 
 ```text
-packages/entry/       Published main package and native addon source.
-packages/loader/      Shared JS loader used by the main and platform packages.
-packages/<platform>/  Published optional prebuild packages.
-scripts/              Build, header preparation, and test orchestration.
-test/                 Node-based behavioral tests.
-hmr-comparison/       Standalone cache-invalidation comparison harness.
-docs/                 Architecture, packaging, release, and support docs.
+packages/native/                     Shared native source, not published.
+packages/loader/                     Shared JS loader package.
+packages/require-builtin/entry/      Published unrestricted entry package.
+packages/require-builtin/<platform>/ Published unrestricted prebuild packages.
+packages/internal-loader/entry/      Published whitelisted entry package.
+packages/internal-loader/<platform>/ Published whitelisted prebuild packages.
+scripts/                             Build, header, release, and test scripts.
+test/                                Node-based behavioral tests.
+hmr-comparison/                      Cache-invalidation comparison harness.
+docs/                                Architecture, packaging, release docs.
 ```
 
 ## Commands
@@ -57,13 +60,15 @@ pnpm test:backends
 
 ## Packaging invariants
 
-- Package metadata is explicit. Keep `packages/entry/package.json`,
-  `packages/<platform>/package.json`, `packages/<platform>/prebuilds.json`, and
+- Package metadata is explicit. Keep `packages/<family>/entry/package.json`,
+  `packages/<family>/<platform>/package.json`,
+  `packages/<family>/<platform>/prebuilds.json`, and
   `docs/support-matrix.md` synchronized when the matrix changes.
-- Optional package names contain platform only, not backend or ABI.
+- Optional package names contain product family and platform only, not backend
+  or ABI.
 - Backend and ABI selection happens at runtime inside the JS loader.
-- Every loaded native binding must be checked against its exported `backend` and
-  `abi`.
+- Every loaded native binding must be checked against its exported `product`,
+  `backend`, and `abi`.
 - Generated artifacts stay out of git: `build/`, `lib/`, `prebuilt/`,
   `.cache/`, `dist/`, `*.node`, and `*.tsbuildinfo`.
 

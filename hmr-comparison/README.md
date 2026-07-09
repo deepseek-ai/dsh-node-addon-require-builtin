@@ -3,7 +3,7 @@
 This directory is a standalone verification project for comparing module cache
 invalidation strategies.
 
-It does not test whether `@esplus/node-addon-require-builtin` itself works. The
+It does not test whether `@esplus/node-addon-internal-loader` itself works. The
 addon has its own tests for that. This project compares HMR/cache invalidation
 strategies from the upstream POC and adds addon-based internal ESM loader access
 as another strategy in the same matrix.
@@ -13,9 +13,9 @@ as another strategy in the same matrix.
 - Do not edit `../src` from here.
 - Fixtures and runner code live in this directory so the comparison is
   reproducible inside this repository.
-- The addon strategies load the entry package at `../packages/entry`; build the
-  parent addon or provide a current-platform optional prebuild before running
-  the comparison.
+- The addon strategies load the entry package at
+  `../packages/internal-loader/entry`; build the parent addon or provide a
+  current-platform optional prebuild before running the comparison.
 
 ## Install and run
 
@@ -359,7 +359,7 @@ addoninternalesm-and-requirecache     esm-static-import  yes      yes        yes
 
 The upstream POC compares public hooks, CJS cache deletion, exposed internal ESM
 loader access, and VM-based alternatives. This repository adds another internal
-loader access path: `@esplus/node-addon-require-builtin` can obtain
+loader access path: `@esplus/node-addon-internal-loader` can obtain
 `internal/modules/esm/loader` without `--expose-internals`.
 
 Keeping the comparison here makes the addon strategy reviewable next to the

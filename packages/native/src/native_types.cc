@@ -142,7 +142,7 @@ std::string_view ProbeStatusString(ProbeStatus status) {
     case ProbeStatus::kSupported:
       return "Supported";
     case ProbeStatus::kPartialRequireBuiltinOnly:
-      return "Partial/internal-require-only";
+      return "Partial/require-builtin-only";
     case ProbeStatus::kUnsupportedNoContext:
       return "Unsupported/no-context";
     case ProbeStatus::kUnsupportedNoRealm:

@@ -16,8 +16,10 @@ pnpm build
 pnpm test
 ```
 
-`pnpm build` compiles TypeScript package entrypoints and the default N-API native
-addon. `pnpm test` runs the addon without `--expose-internals`.
+`pnpm build` compiles TypeScript package entrypoints and the default
+`internal-loader` N-API native addon. Set `NARB_PRODUCT=require-builtin` to
+build or test the unrestricted product. `pnpm test` runs the selected product
+without `--expose-internals`.
 
 ## Common Commands
 
@@ -55,9 +57,13 @@ delimiter.
 See [naming.md](naming.md) for the project-wide naming convention.
 
 - `NARB_BACKEND=auto|napi|nodeabi`: backend preference.
+- `NARB_PRODUCT=internal-loader|require-builtin`: native product selected for
+  source and prebuild builds.
 - `NARB_DISABLE_OPTIONAL_PACKAGE=1`: skip optional packages.
 - `NARB_DISABLE_LOCAL_BUILD=1`: skip local build lookup in loader tests.
 - `NARB_EXPECTED_BACKEND=napi|nodeabi`: test assertion helper.
+- `NARB_EXPECTED_PRODUCT=internal-loader|require-builtin`: test assertion
+  helper; defaults to `NARB_PRODUCT` when unset.
 - `NARB_DISABLE_NATIVE_CACHE=1`: load native binaries from their package/local
   build path instead of the runtime native cache.
 - `NARB_NATIVE_CACHE_DIR=...`: override the runtime native cache directory.
@@ -74,9 +80,11 @@ Do not commit generated outputs:
 .cache/
 build/
 dist/
-packages/*/build/
-packages/*/lib/
-packages/*/prebuilt/
+packages/loader/lib/
+packages/native/build/
+packages/*/entry/build/
+packages/*/entry/lib/
+packages/*/*/prebuilt/
 *.node
 *.tsbuildinfo
 ```
