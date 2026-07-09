@@ -28,6 +28,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.matrix.outputs.platforms) }}
+    env:
+      # CI runs with probe tracing on across every step so a failing job's log
+      # carries the full runtime-probe trace. Release must stay quiet, so its
+      # workflow does not set this.
+      NARB_TRACE: 1
     steps:
       - uses: actions/checkout@v4
 
@@ -134,7 +139,6 @@ jobs:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
           NARB_DISABLE_LOCAL_BUILD: 1
-          NARB_TRACE: 1
 
       - name: Prepare Node.js public headers
         run: pnpm -s headers -- --github-env
@@ -162,6 +166,7 @@ jobs:
     env:
       NARB_BACKEND: napi
       NARB_DISABLE_LOCAL_BUILD: 1
+      NARB_TRACE: 1
     steps:
       - uses: actions/checkout@v4
 
