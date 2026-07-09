@@ -1,8 +1,14 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const addon = require('../packages/entry');
-const { toPortablePath } = require('../packages/entry/scripts/path-utils.js');
+const {
+  toPortablePath,
+  productConfig,
+  entryPackagePath,
+} = require('./product.js');
+
+const { product, entryPackageName, enforcesWhitelist } = productConfig();
+const addon = require(entryPackagePath());
 
 function sortedKeys(value) {
   return Object.keys(value).sort();
@@ -28,9 +34,10 @@ const expectedLocalBuildPath = expectedBackend === 'nodeabi'
   ? new RegExp(`build/nodeabi/node-v[0-9]+-${platformSuffix}/require_builtin\\.node$`)
   : new RegExp(`build/napi/napi-v9-${platformSuffix}/require_builtin\\.node$`);
 
+assert.equal(info.product, product);
 assert.equal(
   info.optionalPackageName,
-  `@esplus/node-addon-require-builtin-${platformSuffix}`,
+  `${entryPackageName}-${platformSuffix}`,
 );
 assert.equal(typeof platformSuffix, 'string');
 assert.match(info.bindingPath, /\.node$/);
@@ -67,6 +74,7 @@ assert.equal(typeof nativeBinding.requireBuiltin, 'function');
 assert.equal(typeof nativeBinding.isAllowedInternalId, 'function');
 assert.deepEqual(nativeBinding.getNativeBindingInfo(), {
   mode: expectedMode,
+  product,
   backend: expectedBackend,
   abi: expectedAbi,
 });
@@ -75,18 +83,30 @@ assert.equal(typeof addon.requireBuiltin, 'function');
 assert.equal(typeof addon.isAllowedInternalId, 'function');
 assert.equal(addon.isAllowedInternalId('internal/modules/esm/loader'), true);
 assert.equal(addon.isAllowedInternalId('internal/modules/cjs/loader'), true);
-assert.equal(addon.isAllowedInternalId('internal/bootstrap/realm'), false);
-assert.equal(addon.isAllowedInternalId(''), false);
 assert.throws(() => addon.requireBuiltin(), /moduleId must be a string/);
-assert.throws(
-  () => addon.requireBuiltin('internal/bootstrap/realm'),
-  (error) => {
-    assert.equal(error.code, 'Unsupported/disallowed-target');
-    assert.equal(error.diagnostics.target, 'internal/bootstrap/realm');
-    assert.match(error.message, /moduleId must be one of:/);
-    return true;
-  },
-);
+
+if (enforcesWhitelist) {
+  // internal-loader restricts ids to the cjs/esm loader allow-list.
+  assert.equal(addon.isAllowedInternalId('internal/bootstrap/realm'), false);
+  assert.equal(addon.isAllowedInternalId(''), false);
+  assert.throws(
+    () => addon.requireBuiltin('internal/bootstrap/realm'),
+    (error) => {
+      assert.equal(error.code, 'Unsupported/disallowed-target');
+      assert.equal(error.diagnostics.target, 'internal/bootstrap/realm');
+      assert.match(error.message, /moduleId must be one of:/);
+      return true;
+    },
+  );
+} else {
+  // require-builtin does not restrict ids: isAllowedInternalId is always true
+  // and requireBuiltin forwards any id to Node's builtin require.
+  assert.equal(addon.isAllowedInternalId('internal/bootstrap/realm'), true);
+  assert.equal(addon.isAllowedInternalId(''), true);
+  const realm = addon.requireBuiltin('internal/bootstrap/realm');
+  assert.equal(typeof realm, 'object');
+  console.log(`realm_keys=${sortedKeys(realm).join(',')}`);
+}
 
 const esmLoader = addon.requireBuiltin('internal/modules/esm/loader');
 assert.equal(typeof esmLoader, 'object');
@@ -102,6 +122,7 @@ console.log(
       node: process.version,
       napi: process.versions.napi,
       binding_source: info.bindingSource,
+      product: info.product,
       mode: info.mode,
       backend: info.backend,
       abi: info.abi,

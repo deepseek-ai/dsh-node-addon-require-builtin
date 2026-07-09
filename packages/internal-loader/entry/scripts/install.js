@@ -8,6 +8,14 @@ const { toPortablePath } = require('./path-utils.js');
 const root = path.resolve(__dirname, '..');
 const NAPI_VERSION = '9';
 
+// The single native source tree lives at packages/native (shared by both
+// families) and is intentionally not shipped in the published entry package.
+// In a repository checkout it sits two levels up from this entry package; in a
+// published install it is absent, so the source fallback stays unavailable and
+// the install fails closed. The family (== product) is the entry's parent dir.
+const nativeRoot = path.resolve(root, '..', '..', 'native');
+const product = path.basename(path.dirname(root));
+
 function packageName() {
   try {
     return require(path.join(root, 'package.json')).name || 'this package';
@@ -131,9 +139,9 @@ function optionalPrebuildWorks() {
 }
 
 function sourceFallbackAvailable() {
-  return fs.existsSync(path.join(root, 'binding.gyp')) &&
-    fs.existsSync(path.join(root, 'src', 'node_api_addon.cc')) &&
-    fs.existsSync(path.join(root, 'src', 'require_builtin_probe.cc'));
+  return fs.existsSync(path.join(nativeRoot, 'binding.gyp')) &&
+    fs.existsSync(path.join(nativeRoot, 'src', 'node_api_addon.cc')) &&
+    fs.existsSync(path.join(nativeRoot, 'src', 'require_builtin_probe.cc'));
 }
 
 function isNodeExecutableScript(command) {
@@ -260,12 +268,13 @@ function nodeGypArgsFor(platform, invocationArgs) {
 function runNodeGyp() {
   const invocation = nodeGypInvocation();
   const result = spawnSync(invocation.command, nodeGypArgsFor(process.platform, invocation.args), {
-    cwd: root,
+    cwd: nativeRoot,
     stdio: 'inherit',
     shell: invocation.shell,
     env: {
       ...process.env,
       NARB_BACKEND: 'napi',
+      NARB_PRODUCT: product,
       GYP_DEFINES: nodeGypDefines(process.env.GYP_DEFINES),
       npm_config_enable_lto: 'false',
       npm_config_enable_thin_lto: 'false',
@@ -279,7 +288,7 @@ function runNodeGyp() {
 }
 
 function copyNodeGypOutput() {
-  const source = path.join(root, 'build', 'Release', 'require_builtin.node');
+  const source = path.join(nativeRoot, 'build', 'Release', 'require_builtin.node');
   const target = path.join(root, localBuildRelativePath());
 
   if (!fs.existsSync(source)) {

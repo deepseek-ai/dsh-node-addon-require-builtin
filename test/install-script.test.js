@@ -10,7 +10,7 @@ const {
   nodeGypInvocationFor,
   sourceFallbackAvailable,
   validationScript,
-} = require('../packages/entry/scripts/install.js');
+} = require('../packages/internal-loader/entry/scripts/install.js');
 
 assert.deepEqual(
   nodeGypInvocationFor('linux', undefined, '/usr/bin/node'),
@@ -32,7 +32,7 @@ assert.deepEqual(
 
 {
   const entryNodeGyp = path.resolve(
-    'packages/entry/node_modules/node-gyp/bin/node-gyp.js',
+    'packages/internal-loader/entry/node_modules/node-gyp/bin/node-gyp.js',
   );
   const exists = (candidate) => candidate === entryNodeGyp;
   assert.equal(
@@ -200,7 +200,7 @@ assert.equal(
 
 {
   const installScript = require('node:fs').readFileSync(
-    path.resolve('packages/entry/scripts/install.js'),
+    path.resolve('packages/internal-loader/entry/scripts/install.js'),
     'utf8',
   );
   assert.match(installScript, /sourceFallbackAvailable/);

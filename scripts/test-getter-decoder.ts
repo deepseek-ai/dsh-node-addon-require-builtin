@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 // byte buffer), so this exercises every platform's getter shape on one host
 // without needing to run on that platform.
 const root = path.resolve(__dirname, '..');
-const packageRoot = path.join(root, 'packages', 'entry');
+const packageRoot = path.join(root, 'packages', 'native');
 const nodeInclude = path.join(
   path.dirname(process.execPath),
   '..',
@@ -29,6 +29,7 @@ const args = [
   path.join(packageRoot, 'src'),
   '-DNAPI_VERSION=9',
   '-DNARB_BACKEND=1',
+  '-DNARB_PRODUCT=2',
   path.join(packageRoot, 'src', 'runtime_probe', 'getter_decoder.cc'),
   path.join(root, 'test', 'getter_decoder_selftest.cc'),
   '-o',

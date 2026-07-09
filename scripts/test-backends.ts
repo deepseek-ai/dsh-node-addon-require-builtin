@@ -26,7 +26,8 @@ function run(args: string[], extraEnv: Record<string, string> = {}): void {
 
 function captureProbe(backend: string): ProbeSummary {
   const script = `
-    const addon = require('./packages/entry');
+    const { entryPackagePath } = require('./test/product.js');
+    const addon = require(entryPackagePath());
     const info = addon.getBindingInfo();
     const esmLoader = addon.requireBuiltin('internal/modules/esm/loader');
     const cjsLoader = addon.requireBuiltin('internal/modules/cjs/loader');
