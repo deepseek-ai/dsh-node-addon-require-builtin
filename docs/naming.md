@@ -7,8 +7,8 @@ in [packaging.md](packaging.md), runtime structure lives in
 
 ## npm Packages
 
-Published npm packages use the `@esplus` scope. There are two product families
-and one shared loader package:
+Published npm packages are unscoped. There are two product families and one
+shared loader package:
 
 ```text
 node-addon-native-custom-loader
