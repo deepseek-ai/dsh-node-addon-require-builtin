@@ -231,7 +231,7 @@ jobs:
       - name: Publish tarballs
         run: |
           while IFS= read -r tarball; do
-            npm publish "dist/npm/${tarball}" --access restricted
+            npm publish "dist/npm/${tarball}" --access public
           done < dist/npm/publish-order.txt
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

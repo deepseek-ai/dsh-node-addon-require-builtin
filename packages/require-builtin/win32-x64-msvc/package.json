@@ -4,7 +4,7 @@
   "description": "Prebuilt win32-x64-msvc native addon package for node-addon-require-builtin.",
   "main": "./index.js",
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "os": [
     "win32"

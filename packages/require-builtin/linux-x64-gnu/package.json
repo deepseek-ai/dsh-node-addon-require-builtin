@@ -4,7 +4,7 @@
   "description": "Prebuilt linux-x64-gnu native addon package for node-addon-require-builtin.",
   "main": "./index.js",
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "os": [
     "linux"
