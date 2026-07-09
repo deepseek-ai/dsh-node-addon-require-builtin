@@ -52,10 +52,13 @@ The JS entry package re-exports only `requireBuiltin(moduleId)`,
 native and loader metadata. It does not expose `probe()` directly.
 
 Before a selected native binary is required, the shared loader copies it to a
-content-addressed runtime cache and loads that copy. This keeps package-managed
-`.node` files replaceable by package managers while the process is running. The
-cache path includes package version and content hash; if cache materialization
-fails, the loader falls back to the original binary path.
+runtime cache and loads that copy. This keeps package-managed `.node` files
+replaceable by package managers while the process is running. The cache path is
+deterministic — namespaced by package name, version and platform — so it stays
+short (well under the Windows `MAX_PATH` limit) and identical on every load; a
+content hash is used only to verify the cached file's integrity, and if it does
+not match (or materialization fails) the loader falls back to the original
+binary path.
 
 ## Probe Decision Flow
 

@@ -141,24 +141,30 @@ function materializedNativeBinaryPath(sourcePath: string, packageName: string): 
     const data = fs.readFileSync(sourcePath);
     const digest = sha256(data);
     const filename = path.basename(sourcePath);
+    // The cache path is fully determined by package name, version, platform and
+    // file name — never by the content digest. Those already namespace distinct
+    // binaries, so a fixed layout keeps the path short (Windows MAX_PATH is 260)
+    // and identical on every load. The digest is only used to verify integrity
+    // of whatever already sits at that deterministic path.
     const destinationDir = path.join(
       nativeCacheRoot(),
       packageName.replace(/^@/, '').replace(/[\\/]/g, '-'),
       packageVersionForNativeBinary(sourcePath),
       platformPackageSuffix(),
-      filename,
-      digest,
     );
     const destination = path.join(destinationDir, filename);
 
     if (fs.existsSync(destination)) {
+      // A cached file exists at the expected path. Trust it only if its content
+      // hash matches the source; otherwise it is stale or corrupt, so refuse it
+      // and load from the original directory instead.
       return cachedFileMatches(destination, digest) ? destination : sourcePath;
     }
 
     fs.mkdirSync(destinationDir, { recursive: true });
     const temp = path.join(
       destinationDir,
-      `.${filename}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`,
+      `.${filename}.${process.pid}.${Math.random().toString(16).slice(2)}.tmp`,
     );
 
     fs.writeFileSync(temp, data, {
