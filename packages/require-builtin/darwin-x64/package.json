@@ -1,0 +1,28 @@
+{
+  "name": "@esplus/node-addon-require-builtin-darwin-x64",
+  "version": "0.0.9",
+  "description": "Prebuilt darwin-x64 native addon package for @esplus/node-addon-require-builtin.",
+  "main": "./index.js",
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "index.js",
+    "README.md",
+    "prebuilds.json",
+    "prebuilt/"
+  ],
+  "dependencies": {
+    "@esplus/node-addon-native-custom-loader": "workspace:*"
+  },
+  "license": "MIT"
+}

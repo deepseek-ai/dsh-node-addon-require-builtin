@@ -1,0 +1,12 @@
+{
+  "platform": "darwin-x64",
+  "binaries": [
+    {
+      "backend": "napi",
+      "abi": "napi-v9",
+      "binaryTag": "napi-v9",
+      "node": ">=20",
+      "path": "prebuilt/darwin-x64-napi-v9.node"
+    }
+  ]
+}

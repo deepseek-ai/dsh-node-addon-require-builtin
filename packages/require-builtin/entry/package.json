@@ -1,0 +1,46 @@
+{
+  "name": "@esplus/node-addon-require-builtin",
+  "version": "0.0.9",
+  "type": "commonjs",
+  "description": "Node-API addon with runtime probing for internal access (unrestricted require-builtin variant).",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "import": "./lib/index.js",
+      "require": "./lib/index.js",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "files": [
+    "README.md",
+    "lib/",
+    "!lib/.tsbuildinfo",
+    "!lib/*.tsbuildinfo",
+    "scripts/install.js",
+    "scripts/path-utils.js"
+  ],
+  "scripts": {
+    "build:js": "tsc -b",
+    "install": "node ./scripts/install.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@esplus/node-addon-native-custom-loader": "workspace:*"
+  },
+  "optionalDependencies": {
+    "@esplus/node-addon-require-builtin-darwin-arm64": "workspace:*",
+    "@esplus/node-addon-require-builtin-darwin-x64": "workspace:*",
+    "@esplus/node-addon-require-builtin-linux-arm64-gnu": "workspace:*",
+    "@esplus/node-addon-require-builtin-linux-x64-gnu": "workspace:*",
+    "@esplus/node-addon-require-builtin-win32-arm64-msvc": "workspace:*",
+    "@esplus/node-addon-require-builtin-win32-ia32-msvc": "workspace:*",
+    "@esplus/node-addon-require-builtin-win32-x64-msvc": "workspace:*"
+  }
+}

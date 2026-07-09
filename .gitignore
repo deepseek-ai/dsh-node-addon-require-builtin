@@ -8,10 +8,11 @@ dist/
 node_modules/
 /package-lock.json
 /prebuilt/
-/packages/entry/build/
-/packages/entry/lib/
+/packages/native/build/
+/packages/*/entry/build/
+/packages/*/entry/lib/
 /packages/loader/lib/
-/packages/*/prebuilt/
+/packages/*/*/prebuilt/
 pnpm-publish-summary.json
 *.log
 *.tsbuildinfo

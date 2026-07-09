@@ -11,6 +11,9 @@ importers:
       '@types/node':
         specifier: ^24.10.0
         version: 24.13.2
+      node-addon-api:
+        specifier: ^8.9.0
+        version: 8.9.0
       node-gyp:
         specifier: 12.4.0
         version: 12.4.0
@@ -21,26 +24,95 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  packages/darwin-arm64:
+  packages/internal-loader/darwin-arm64:
     dependencies:
-      '@esplus/node-addon-require-builtin-loader':
+      '@esplus/node-addon-native-custom-loader':
         specifier: workspace:*
-        version: link:../loader
+        version: link:../../loader
 
-  packages/darwin-x64:
+  packages/internal-loader/darwin-x64:
     dependencies:
-      '@esplus/node-addon-require-builtin-loader':
+      '@esplus/node-addon-native-custom-loader':
         specifier: workspace:*
-        version: link:../loader
+        version: link:../../loader
 
-  packages/entry:
+  packages/internal-loader/entry:
     dependencies:
-      '@esplus/node-addon-require-builtin-loader':
+      '@esplus/node-addon-native-custom-loader':
         specifier: workspace:*
-        version: link:../loader
-      node-addon-api:
-        specifier: ^8.9.0
-        version: 8.9.0
+        version: link:../../loader
+    optionalDependencies:
+      '@esplus/node-addon-internal-loader-darwin-arm64':
+        specifier: workspace:*
+        version: link:../darwin-arm64
+      '@esplus/node-addon-internal-loader-darwin-x64':
+        specifier: workspace:*
+        version: link:../darwin-x64
+      '@esplus/node-addon-internal-loader-linux-arm64-gnu':
+        specifier: workspace:*
+        version: link:../linux-arm64-gnu
+      '@esplus/node-addon-internal-loader-linux-x64-gnu':
+        specifier: workspace:*
+        version: link:../linux-x64-gnu
+      '@esplus/node-addon-internal-loader-win32-arm64-msvc':
+        specifier: workspace:*
+        version: link:../win32-arm64-msvc
+      '@esplus/node-addon-internal-loader-win32-ia32-msvc':
+        specifier: workspace:*
+        version: link:../win32-ia32-msvc
+      '@esplus/node-addon-internal-loader-win32-x64-msvc':
+        specifier: workspace:*
+        version: link:../win32-x64-msvc
+
+  packages/internal-loader/linux-arm64-gnu:
+    dependencies:
+      '@esplus/node-addon-native-custom-loader':
+        specifier: workspace:*
+        version: link:../../loader
+
+  packages/internal-loader/linux-x64-gnu:
+    dependencies:
+      '@esplus/node-addon-native-custom-loader':
+        specifier: workspace:*
+        version: link:../../loader
+
+  packages/internal-loader/win32-arm64-msvc:
+    dependencies:
+      '@esplus/node-addon-native-custom-loader':
+        specifier: workspace:*
+        version: link:../../loader
+
+  packages/internal-loader/win32-ia32-msvc:
+    dependencies:
+      '@esplus/node-addon-native-custom-loader':
+        specifier: workspace:*
+        version: link:../../loader
+
+  packages/internal-loader/win32-x64-msvc:
+    dependencies:
+      '@esplus/node-addon-native-custom-loader':
+        specifier: workspace:*
+        version: link:../../loader
+
+  packages/loader: {}
+
+  packages/require-builtin/darwin-arm64:
+    dependencies:
+      '@esplus/node-addon-native-custom-loader':
+        specifier: workspace:*
+        version: link:../../loader
+
+  packages/require-builtin/darwin-x64:
+    dependencies:
+      '@esplus/node-addon-native-custom-loader':
+        specifier: workspace:*
+        version: link:../../loader
+
+  packages/require-builtin/entry:
+    dependencies:
+      '@esplus/node-addon-native-custom-loader':
+        specifier: workspace:*
+        version: link:../../loader
     optionalDependencies:
       '@esplus/node-addon-require-builtin-darwin-arm64':
         specifier: workspace:*
@@ -64,37 +136,35 @@ importers:
         specifier: workspace:*
         version: link:../win32-x64-msvc
 
-  packages/linux-arm64-gnu:
+  packages/require-builtin/linux-arm64-gnu:
     dependencies:
-      '@esplus/node-addon-require-builtin-loader':
+      '@esplus/node-addon-native-custom-loader':
         specifier: workspace:*
-        version: link:../loader
+        version: link:../../loader
 
-  packages/linux-x64-gnu:
+  packages/require-builtin/linux-x64-gnu:
     dependencies:
-      '@esplus/node-addon-require-builtin-loader':
+      '@esplus/node-addon-native-custom-loader':
         specifier: workspace:*
-        version: link:../loader
+        version: link:../../loader
 
-  packages/loader: {}
-
-  packages/win32-arm64-msvc:
+  packages/require-builtin/win32-arm64-msvc:
     dependencies:
-      '@esplus/node-addon-require-builtin-loader':
+      '@esplus/node-addon-native-custom-loader':
         specifier: workspace:*
-        version: link:../loader
+        version: link:../../loader
 
-  packages/win32-ia32-msvc:
+  packages/require-builtin/win32-ia32-msvc:
     dependencies:
-      '@esplus/node-addon-require-builtin-loader':
+      '@esplus/node-addon-native-custom-loader':
         specifier: workspace:*
-        version: link:../loader
+        version: link:../../loader
 
-  packages/win32-x64-msvc:
+  packages/require-builtin/win32-x64-msvc:
     dependencies:
-      '@esplus/node-addon-require-builtin-loader':
+      '@esplus/node-addon-native-custom-loader':
         specifier: workspace:*
-        version: link:../loader
+        version: link:../../loader
 
 packages:
 

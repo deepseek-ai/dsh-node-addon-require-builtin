@@ -1,8 +1,8 @@
 {
-  "name": "@esplus/node-addon-require-builtin-loader",
+  "name": "@esplus/node-addon-native-custom-loader",
   "version": "0.0.9",
   "type": "commonjs",
-  "description": "Shared loader for @esplus/node-addon-require-builtin entry and platform packages.",
+  "description": "Shared native binary loader for the @esplus/node-addon-require-builtin and @esplus/node-addon-internal-loader package families.",
   "main": "lib/index.js",
   "exports": {
     ".": {

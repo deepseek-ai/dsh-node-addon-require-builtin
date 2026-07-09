@@ -1,0 +1,14 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "outDir": "lib",
+    "rootDir": ".",
+    "tsBuildInfoFile": "lib/.tsbuildinfo"
+  },
+  "include": ["index.ts"],
+  "references": [
+    { "path": "../../loader" }
+  ]
+}
