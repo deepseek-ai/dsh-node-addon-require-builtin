@@ -3,29 +3,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('..', import.meta.url));
-const packagesRoot = path.join(root, 'packages');
+import { allPublishDirs, readJson, root } from './packages.mjs';
+
 const destination = path.resolve(process.argv[2] || path.join(root, 'dist', 'npm'));
-
-function readJson(file) {
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
-}
-
-function packageDirs() {
-  const platformDirs = fs.readdirSync(packagesRoot)
-    .filter((name) => name !== 'entry' && name !== 'loader')
-    .filter((name) => fs.existsSync(path.join(packagesRoot, name, 'package.json')))
-    .sort()
-    .map((name) => path.join('packages', name));
-
-  return [
-    'packages/loader',
-    ...platformDirs,
-    'packages/entry',
-  ];
-}
 
 function run(command, args) {
   const result = spawnSync(command, args, {
@@ -72,7 +53,7 @@ fs.rmSync(destination, { recursive: true, force: true });
 fs.mkdirSync(destination, { recursive: true });
 
 const publishOrder = [];
-for (const dir of packageDirs()) {
+for (const dir of allPublishDirs()) {
   const manifest = readJson(path.join(root, dir, 'package.json'));
   verifyPrebuilds(dir);
   run('pnpm', ['--dir', dir, 'pack', '--pack-destination', destination]);

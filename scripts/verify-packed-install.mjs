@@ -4,38 +4,19 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('..', import.meta.url));
-const packagesRoot = path.join(root, 'packages');
+import {
+  allPublishDirs,
+  entryDirFor,
+  FAMILIES,
+  LOADER_DIR,
+  platformDirsFor,
+  readJson,
+  root,
+} from './packages.mjs';
+
 const tarballDir = path.resolve(process.argv[2] || path.join(root, 'dist', 'npm'));
-const entryPackageName = '@esplus/node-addon-require-builtin';
-const loaderPackageName = '@esplus/node-addon-require-builtin-loader';
-
-function readJson(file) {
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
-}
-
-function packageDirs() {
-  const platformDirs = fs.readdirSync(packagesRoot)
-    .filter((name) => name !== 'entry' && name !== 'loader')
-    .filter((name) => fs.existsSync(path.join(packagesRoot, name, 'package.json')))
-    .sort()
-    .map((name) => path.join('packages', name));
-
-  return [
-    'packages/loader',
-    ...platformDirs,
-    'packages/entry',
-  ];
-}
-
-function packageManifests() {
-  return packageDirs().map((dir) => ({
-    dir,
-    manifest: readJson(path.join(root, dir, 'package.json')),
-  }));
-}
+const loaderManifest = readJson(path.join(root, LOADER_DIR, 'package.json'));
 
 function tarballName(manifest) {
   if (manifest.name.startsWith('@')) {
@@ -113,19 +94,6 @@ function assertSameList(label, actual, expected) {
   }
 }
 
-function verifyTarballCoverage(manifests, packedEntryManifest) {
-  for (const { manifest } of manifests) {
-    tarballPath(manifest);
-  }
-
-  const platformPackageNames = manifests
-    .filter(({ dir }) => dir !== 'packages/entry' && dir !== 'packages/loader')
-    .map(({ manifest }) => manifest.name)
-    .sort();
-  const optionalNames = Object.keys(packedEntryManifest.optionalDependencies || {}).sort();
-  assertSameList('packed entry optionalDependencies', optionalNames, platformPackageNames);
-}
-
 function packageInstallDir(packageName) {
   return path.join(tempRoot, 'node_modules', ...packageName.split('/'));
 }
@@ -143,54 +111,55 @@ function unpackTarball(manifest) {
   console.log(`Unpacked ${manifest.name} -> ${path.relative(tempRoot, destination)}`);
 }
 
-const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'narb-packed-install-'));
-const manifests = packageManifests();
-const entryManifest = manifests.find(({ manifest }) => manifest.name === entryPackageName)?.manifest;
-const loaderManifest = manifests.find(({ manifest }) => manifest.name === loaderPackageName)?.manifest;
-const currentPlatformPackageName = `${entryPackageName}-${platformSuffix()}`;
-const currentPlatformManifest = manifests.find(
-  ({ manifest }) => manifest.name === currentPlatformPackageName,
-)?.manifest;
+// Confirm every package in the release has a tarball, and that each family's
+// packed entry lists exactly its own platform packages as optionalDependencies.
+function verifyTarballCoverage() {
+  for (const dir of allPublishDirs()) {
+    tarballPath(readJson(path.join(root, dir, 'package.json')));
+  }
 
-if (!entryManifest) throw new Error(`missing source manifest for ${entryPackageName}`);
-if (!loaderManifest) throw new Error(`missing source manifest for ${loaderPackageName}`);
-if (!currentPlatformManifest) {
-  throw new Error(`current platform package is not in the release matrix: ${currentPlatformPackageName}`);
+  for (const family of FAMILIES) {
+    const entryManifest = readJson(path.join(root, entryDirFor(family), 'package.json'));
+    const platformNames = platformDirsFor(family)
+      .map((dir) => readJson(path.join(root, dir, 'package.json')).name)
+      .sort();
+    const packedEntry = readPackedManifest(entryManifest);
+    const optionalNames = Object.keys(packedEntry.optionalDependencies || {}).sort();
+    assertSameList(`packed ${family} entry optionalDependencies`, optionalNames, platformNames);
+  }
 }
 
-verifyTarballCoverage(manifests, readPackedManifest(entryManifest));
+// Build a minimal installed tree from local tarballs only (no registry access
+// for the private optional packages) and run the family entry's install
+// lifecycle + a runtime smoke test against the exact packed files.
+function verifyFamily(family) {
+  const entryManifest = readJson(path.join(root, entryDirFor(family), 'package.json'));
+  const entryPackageName = entryManifest.name;
+  const currentPlatformPackageName = `${entryPackageName}-${platformSuffix()}`;
+  const currentPlatformDir = platformDirsFor(family).find(
+    (dir) => readJson(path.join(root, dir, 'package.json')).name === currentPlatformPackageName,
+  );
+  if (!currentPlatformDir) {
+    throw new Error(`current platform package is not in the ${family} matrix: ${currentPlatformPackageName}`);
+  }
+  const currentPlatformManifest = readJson(path.join(root, currentPlatformDir, 'package.json'));
 
-fs.writeFileSync(
-  path.join(tempRoot, 'package.json'),
-  `${JSON.stringify({
-    name: 'narb-packed-install-check',
-    version: '0.0.0',
-    private: true,
-  }, null, 2)}\n`,
-);
+  console.log(`\n== Verifying packed install for ${entryPackageName} ==`);
+  unpackTarball(currentPlatformManifest);
+  unpackTarball(entryManifest);
 
-console.log(`Verifying packed install in ${tempRoot}`);
+  const entryInstallDir = packageInstallDir(entryPackageName);
+  const entryInstallScript = path.join(entryInstallDir, 'scripts', 'install.js');
+  const entryPackedManifest = readJson(path.join(entryInstallDir, 'package.json'));
+  if (entryPackedManifest.scripts?.install !== 'node ./scripts/install.js') {
+    throw new Error(`unexpected packed install script: ${entryPackedManifest.scripts?.install}`);
+  }
 
-// Build a minimal installed tree from local tarballs only. This avoids registry
-// access for private optional packages while still running the entry package's
-// install lifecycle against the exact packed files.
-unpackTarball(loaderManifest);
-unpackTarball(currentPlatformManifest);
-unpackTarball(entryManifest);
+  run(process.execPath, [entryInstallScript], {
+    cwd: entryInstallDir,
+    env: { CI: 'true' },
+  });
 
-const entryInstallDir = packageInstallDir(entryPackageName);
-const entryInstallScript = path.join(entryInstallDir, 'scripts', 'install.js');
-const entryPackedManifest = readJson(path.join(entryInstallDir, 'package.json'));
-if (entryPackedManifest.scripts?.install !== 'node ./scripts/install.js') {
-  throw new Error(`unexpected packed install script: ${entryPackedManifest.scripts?.install}`);
-}
-
-run(process.execPath, [entryInstallScript], {
-  cwd: entryInstallDir,
-  env: { CI: 'true' },
-});
-
-{
   const optionalPackageDir = packageInstallDir(currentPlatformPackageName);
   const disabledOptionalPackageDir = `${optionalPackageDir}.disabled`;
   fs.renameSync(optionalPackageDir, disabledOptionalPackageDir);
@@ -213,31 +182,54 @@ run(process.execPath, [entryInstallScript], {
   } finally {
     fs.renameSync(disabledOptionalPackageDir, optionalPackageDir);
   }
+
+  run(
+    process.execPath,
+    ['-e', `
+      const addon = require(${JSON.stringify(entryPackageName)});
+      const info = addon.getBindingInfo();
+      if (!/^optional-package/.test(info.bindingSource)) {
+        throw new Error('expected optional package binding, got ' + info.bindingSource);
+      }
+      addon.requireBuiltin('internal/modules/esm/loader');
+      addon.requireBuiltin('internal/modules/cjs/loader');
+      console.log(JSON.stringify({
+        package: ${JSON.stringify(entryPackageName)},
+        product: info.product,
+        bindingSource: info.bindingSource,
+        backend: info.backend,
+        abi: info.abi
+      }, null, 2));
+    `],
+    {
+      cwd: tempRoot,
+      env: {
+        NARB_DISABLE_LOCAL_BUILD: '1',
+      },
+    },
+  );
 }
 
-run(
-  process.execPath,
-  ['-e', `
-    const addon = require(${JSON.stringify(entryPackageName)});
-    const info = addon.getBindingInfo();
-    if (!/^optional-package/.test(info.bindingSource)) {
-      throw new Error('expected optional package binding, got ' + info.bindingSource);
-    }
-    addon.requireBuiltin('internal/modules/esm/loader');
-    addon.requireBuiltin('internal/modules/cjs/loader');
-    console.log(JSON.stringify({
-      package: ${JSON.stringify(entryPackageName)},
-      bindingSource: info.bindingSource,
-      backend: info.backend,
-      abi: info.abi
-    }, null, 2));
-  `],
-  {
-    cwd: tempRoot,
-    env: {
-      NARB_DISABLE_LOCAL_BUILD: '1',
-    },
-  },
+const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'narb-packed-install-'));
+
+verifyTarballCoverage();
+
+fs.writeFileSync(
+  path.join(tempRoot, 'package.json'),
+  `${JSON.stringify({
+    name: 'narb-packed-install-check',
+    version: '0.0.0',
+    private: true,
+  }, null, 2)}\n`,
 );
 
-console.log('Packed install verification passed.');
+console.log(`Verifying packed install in ${tempRoot}`);
+
+// The shared loader is unpacked once; both families resolve it by name.
+unpackTarball(loaderManifest);
+
+for (const family of FAMILIES) {
+  verifyFamily(family);
+}
+
+console.log('\nPacked install verification passed.');

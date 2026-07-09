@@ -3,15 +3,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('..', import.meta.url));
+import { allPublishDirs, readJson, root, versionedFiles } from './packages.mjs';
+
 const bump = process.argv[2];
 const releaseTypes = new Set(['major', 'minor', 'patch']);
-
-function readJson(file) {
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
-}
 
 function writeJson(file, value) {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
@@ -30,17 +26,6 @@ function run(command, args) {
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
   }
-}
-
-function packageFiles() {
-  return [
-    'package.json',
-    'hmr-comparison/package.json',
-    ...fs.readdirSync(path.join(root, 'packages'))
-      .map((name) => `packages/${name}/package.json`)
-      .filter((file) => fs.existsSync(path.join(root, file)))
-      .sort(),
-  ];
 }
 
 function parseVersion(version) {
@@ -64,11 +49,11 @@ function nextVersion(current, release) {
   return `${major}.${minor}.${patch + 1}`;
 }
 
-function currentPublishedVersion(files) {
+// The published packages share one version. Read the consensus from the
+// publishable set only (the root/hmr manifests track along but do not define it).
+function currentPublishedVersion() {
   const versions = new Set(
-    files
-      .filter((file) => file.startsWith('packages/'))
-      .map((file) => readJson(path.join(root, file)).version),
+    allPublishDirs().map((dir) => readJson(path.join(root, dir, 'package.json')).version),
   );
   if (versions.size !== 1) {
     throw new Error(`published package versions differ: ${[...versions].join(', ')}`);
@@ -81,8 +66,8 @@ if (!bump) {
   process.exit(1);
 }
 
-const files = packageFiles();
-const targetVersion = nextVersion(currentPublishedVersion(files), bump);
+const files = versionedFiles();
+const targetVersion = nextVersion(currentPublishedVersion(), bump);
 
 for (const file of files) {
   const fullPath = path.join(root, file);

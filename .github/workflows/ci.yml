@@ -22,7 +22,7 @@ jobs:
         run: echo "platforms=$(node ./scripts/github-matrix.mjs ci-platforms)" >> "$GITHUB_OUTPUT"
 
   supported:
-    name: ${{ matrix.platform }} / napi prebuild
+    name: ${{ matrix.family }} / ${{ matrix.platform }} / napi prebuild
     needs: matrix
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -33,6 +33,8 @@ jobs:
       # carries the full runtime-probe trace. Release must stay quiet, so its
       # workflow does not set this.
       NARB_TRACE: 1
+      # Each matrix entry builds and tests exactly one product family.
+      NARB_PRODUCT: ${{ matrix.family }}
     steps:
       - uses: actions/checkout@v4
 
@@ -150,12 +152,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: packages/${{ matrix.platform }}/prebuilt/${{ matrix.filename }}
+          path: ${{ matrix.prebuilt_path }}/${{ matrix.filename }}
           if-no-files-found: error
           retention-days: 7
 
   hmr-comparison:
-    name: ${{ matrix.platform }} / hmr napi prebuild
+    name: ${{ matrix.family }} / ${{ matrix.platform }} / hmr napi prebuild
     needs:
       - matrix
       - supported
@@ -165,6 +167,7 @@ jobs:
       matrix: ${{ fromJson(needs.matrix.outputs.platforms) }}
     env:
       NARB_BACKEND: napi
+      NARB_PRODUCT: ${{ matrix.family }}
       NARB_DISABLE_LOCAL_BUILD: 1
       NARB_TRACE: 1
     steps:
@@ -192,7 +195,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: packages/${{ matrix.platform }}/prebuilt
+          path: ${{ matrix.prebuilt_path }}
 
       - name: Build HMR comparison
         run: pnpm exec tsc -p hmr-comparison/tsconfig.json

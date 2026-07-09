@@ -29,12 +29,15 @@ jobs:
         run: echo "platforms=$(node ./scripts/github-matrix.mjs release-platforms)" >> "$GITHUB_OUTPUT"
 
   build-and-test-napi:
-    name: ${{ matrix.platform }} / build and test napi
+    name: ${{ matrix.family }} / ${{ matrix.platform }} / build and test napi
     needs: matrix
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.matrix.outputs.platforms) }}
+    env:
+      # Each matrix entry builds and tests exactly one product family.
+      NARB_PRODUCT: ${{ matrix.family }}
     steps:
       - uses: actions/checkout@v4
 
@@ -67,7 +70,7 @@ jobs:
 
       - name: Check N-API prebuild output
         run: |
-          node -e "const fs = require('node:fs'); const file = 'packages/${{ matrix.platform }}/prebuilt/${{ matrix.filename }}'; if (!fs.existsSync(file)) throw new Error('missing prebuild: ' + file);"
+          node -e "const fs = require('node:fs'); const file = '${{ matrix.prebuilt_path }}/${{ matrix.filename }}'; if (!fs.existsSync(file)) throw new Error('missing prebuild: ' + file);"
 
       - name: Test N-API prebuild on Node 20
         uses: actions/setup-node@v4
@@ -143,7 +146,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: packages/${{ matrix.platform }}/prebuilt/${{ matrix.filename }}
+          path: ${{ matrix.prebuilt_path }}/${{ matrix.filename }}
           if-no-files-found: error
           retention-days: 7
 
