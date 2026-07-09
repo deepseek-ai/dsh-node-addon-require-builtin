@@ -15,11 +15,14 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       platforms: ${{ steps.matrix.outputs.platforms }}
+      hmr_platforms: ${{ steps.matrix.outputs.hmr_platforms }}
     steps:
       - uses: actions/checkout@v4
 
       - id: matrix
-        run: echo "platforms=$(node ./scripts/github-matrix.mjs ci-platforms)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "platforms=$(node ./scripts/github-matrix.mjs ci-platforms)" >> "$GITHUB_OUTPUT"
+          echo "hmr_platforms=$(node ./scripts/github-matrix.mjs ci-hmr-platforms)" >> "$GITHUB_OUTPUT"
 
   supported:
     name: ${{ matrix.family }} / ${{ matrix.platform }} / napi prebuild
@@ -164,7 +167,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.matrix.outputs.platforms) }}
+      matrix: ${{ fromJson(needs.matrix.outputs.hmr_platforms) }}
     env:
       NARB_BACKEND: napi
       NARB_PRODUCT: ${{ matrix.family }}

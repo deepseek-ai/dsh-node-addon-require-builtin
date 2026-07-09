@@ -61,9 +61,19 @@ function platformMatrix() {
   return { include };
 }
 
+function hmrPlatformMatrix() {
+  // The HMR harness exercises ESM loader cache invalidation, so it intentionally
+  // runs against the whitelisted internal-loader product only.
+  const family = 'internal-loader';
+  return {
+    include: platformDirsFor(family).map((dir) => platformEntry(family, dir)),
+  };
+}
+
 const target = process.argv[2];
 const matrices = {
   'ci-platforms': platformMatrix,
+  'ci-hmr-platforms': hmrPlatformMatrix,
   'release-platforms': platformMatrix,
 };
 
