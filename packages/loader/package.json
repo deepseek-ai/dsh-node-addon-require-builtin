@@ -1,8 +1,8 @@
 {
-  "name": "@esplus/node-addon-native-custom-loader",
+  "name": "node-addon-native-custom-loader",
   "version": "0.0.10",
   "type": "commonjs",
-  "description": "Shared native binary loader for the @esplus/node-addon-require-builtin and @esplus/node-addon-internal-loader package families.",
+  "description": "Shared native binary loader for the node-addon-require-builtin and node-addon-internal-loader package families.",
   "main": "lib/index.js",
   "exports": {
     ".": {
@@ -13,7 +13,7 @@
     "./package.json": "./package.json"
   },
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "files": [
     "README.md",

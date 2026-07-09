@@ -8,23 +8,23 @@ share one JS loader package.
 ## Published Packages
 
 ```text
-@esplus/node-addon-native-custom-loader
-@esplus/node-addon-require-builtin
-@esplus/node-addon-require-builtin-darwin-arm64
-@esplus/node-addon-require-builtin-darwin-x64
-@esplus/node-addon-require-builtin-linux-arm64-gnu
-@esplus/node-addon-require-builtin-linux-x64-gnu
-@esplus/node-addon-require-builtin-win32-arm64-msvc
-@esplus/node-addon-require-builtin-win32-ia32-msvc
-@esplus/node-addon-require-builtin-win32-x64-msvc
-@esplus/node-addon-internal-loader
-@esplus/node-addon-internal-loader-darwin-arm64
-@esplus/node-addon-internal-loader-darwin-x64
-@esplus/node-addon-internal-loader-linux-arm64-gnu
-@esplus/node-addon-internal-loader-linux-x64-gnu
-@esplus/node-addon-internal-loader-win32-arm64-msvc
-@esplus/node-addon-internal-loader-win32-ia32-msvc
-@esplus/node-addon-internal-loader-win32-x64-msvc
+node-addon-native-custom-loader
+node-addon-require-builtin
+node-addon-require-builtin-darwin-arm64
+node-addon-require-builtin-darwin-x64
+node-addon-require-builtin-linux-arm64-gnu
+node-addon-require-builtin-linux-x64-gnu
+node-addon-require-builtin-win32-arm64-msvc
+node-addon-require-builtin-win32-ia32-msvc
+node-addon-require-builtin-win32-x64-msvc
+node-addon-internal-loader
+node-addon-internal-loader-darwin-arm64
+node-addon-internal-loader-darwin-x64
+node-addon-internal-loader-linux-arm64-gnu
+node-addon-internal-loader-linux-x64-gnu
+node-addon-internal-loader-win32-arm64-msvc
+node-addon-internal-loader-win32-ia32-msvc
+node-addon-internal-loader-win32-x64-msvc
 ```
 
 Unsupported platforms are intentionally absent from `optionalDependencies`.

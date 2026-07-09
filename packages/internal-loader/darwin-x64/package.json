@@ -1,10 +1,10 @@
 {
-  "name": "@esplus/node-addon-internal-loader-darwin-x64",
+  "name": "node-addon-internal-loader-darwin-x64",
   "version": "0.0.10",
-  "description": "Prebuilt darwin-x64 native addon package for @esplus/node-addon-internal-loader.",
+  "description": "Prebuilt darwin-x64 native addon package for node-addon-internal-loader.",
   "main": "./index.js",
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "os": [
     "darwin"
@@ -22,7 +22,7 @@
     "prebuilt/"
   ],
   "dependencies": {
-    "@esplus/node-addon-native-custom-loader": "workspace:*"
+    "node-addon-native-custom-loader": "workspace:*"
   },
   "license": "MIT"
 }

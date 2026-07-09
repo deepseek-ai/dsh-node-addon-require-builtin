@@ -14,13 +14,13 @@ const PRODUCTS = {
   'require-builtin': {
     product: 'require-builtin',
     family: 'require-builtin',
-    entryPackageName: '@esplus/node-addon-require-builtin',
+    entryPackageName: 'node-addon-require-builtin',
     enforcesWhitelist: false,
   },
   'internal-loader': {
     product: 'internal-loader',
     family: 'internal-loader',
-    entryPackageName: '@esplus/node-addon-internal-loader',
+    entryPackageName: 'node-addon-internal-loader',
     enforcesWhitelist: true,
   },
 };

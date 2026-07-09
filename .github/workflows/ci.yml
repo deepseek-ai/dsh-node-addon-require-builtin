@@ -25,7 +25,7 @@ jobs:
           echo "hmr_platforms=$(node ./scripts/github-matrix.mjs ci-hmr-platforms)" >> "$GITHUB_OUTPUT"
 
   supported:
-    name: ${{ matrix.family }} / ${{ matrix.platform }} / napi prebuild
+    name: 'NAPI Build: ${{ matrix.family }} / ${{ matrix.platform }}'
     needs: matrix
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -160,7 +160,7 @@ jobs:
           retention-days: 7
 
   hmr-comparison:
-    name: ${{ matrix.family }} / ${{ matrix.platform }} / hmr napi prebuild
+    name: 'HMR Test: ${{ matrix.family }} / ${{ matrix.platform }}'
     needs:
       - matrix
       - supported

@@ -12,31 +12,31 @@ guessing offsets.
 ## Install
 
 ```sh
-npm install @esplus/node-addon-internal-loader
+npm install node-addon-internal-loader
 # or
-npm install @esplus/node-addon-require-builtin
+npm install node-addon-require-builtin
 ```
 
 Published packages use two product families plus one shared loader package:
 
 ```text
-@esplus/node-addon-native-custom-loader
-@esplus/node-addon-require-builtin
-@esplus/node-addon-require-builtin-darwin-arm64
-@esplus/node-addon-require-builtin-darwin-x64
-@esplus/node-addon-require-builtin-linux-arm64-gnu
-@esplus/node-addon-require-builtin-linux-x64-gnu
-@esplus/node-addon-require-builtin-win32-arm64-msvc
-@esplus/node-addon-require-builtin-win32-ia32-msvc
-@esplus/node-addon-require-builtin-win32-x64-msvc
-@esplus/node-addon-internal-loader
-@esplus/node-addon-internal-loader-darwin-arm64
-@esplus/node-addon-internal-loader-darwin-x64
-@esplus/node-addon-internal-loader-linux-arm64-gnu
-@esplus/node-addon-internal-loader-linux-x64-gnu
-@esplus/node-addon-internal-loader-win32-arm64-msvc
-@esplus/node-addon-internal-loader-win32-ia32-msvc
-@esplus/node-addon-internal-loader-win32-x64-msvc
+node-addon-native-custom-loader
+node-addon-require-builtin
+node-addon-require-builtin-darwin-arm64
+node-addon-require-builtin-darwin-x64
+node-addon-require-builtin-linux-arm64-gnu
+node-addon-require-builtin-linux-x64-gnu
+node-addon-require-builtin-win32-arm64-msvc
+node-addon-require-builtin-win32-ia32-msvc
+node-addon-require-builtin-win32-x64-msvc
+node-addon-internal-loader
+node-addon-internal-loader-darwin-arm64
+node-addon-internal-loader-darwin-x64
+node-addon-internal-loader-linux-arm64-gnu
+node-addon-internal-loader-linux-x64-gnu
+node-addon-internal-loader-win32-arm64-msvc
+node-addon-internal-loader-win32-ia32-msvc
+node-addon-internal-loader-win32-x64-msvc
 ```
 
 Each entry package requires a CI-validated current-platform optional package.
@@ -45,21 +45,21 @@ instead of compiling an unvalidated local binary.
 
 ## Usage
 
-Use `@esplus/node-addon-internal-loader` when only the CommonJS and ESM loader
+Use `node-addon-internal-loader` when only the CommonJS and ESM loader
 internals are needed:
 
 ```js
-const internalLoader = require('@esplus/node-addon-internal-loader');
+const internalLoader = require('node-addon-internal-loader');
 
 const esmLoader = internalLoader.requireBuiltin('internal/modules/esm/loader');
 const cascadedLoader = esmLoader.getOrInitializeCascadedLoader();
 ```
 
-Use `@esplus/node-addon-require-builtin` when unrestricted internal builtin
+Use `node-addon-require-builtin` when unrestricted internal builtin
 loading is required:
 
 ```js
-const requireBuiltinAddon = require('@esplus/node-addon-require-builtin');
+const requireBuiltinAddon = require('node-addon-require-builtin');
 
 const realm = requireBuiltinAddon.requireBuiltin('internal/bootstrap/realm');
 ```
@@ -71,10 +71,10 @@ Both entry packages expose the same small API:
 - `getBindingInfo()`: lazily returns binding diagnostics such as `mode`,
   `product`, `backend`, `abi`, `bindingSource`, and `bindingPath`.
 
-`@esplus/node-addon-internal-loader` only allows
+`node-addon-internal-loader` only allows
 `internal/modules/cjs/loader` and `internal/modules/esm/loader`; the allowlist
 is enforced in the native addon before calling Node's internal
-`requireBuiltin()`. `@esplus/node-addon-require-builtin` does not restrict
+`requireBuiltin()`. `node-addon-require-builtin` does not restrict
 module ids: `isAllowedInternalId()` always returns `true`, and
 `requireBuiltin(id)` forwards any string id to Node.
 See [docs/internal-modules.md](docs/internal-modules.md) for the allowlist and

@@ -1,10 +1,10 @@
 {
-  "name": "@esplus/node-addon-internal-loader-linux-x64-gnu",
+  "name": "node-addon-internal-loader-linux-x64-gnu",
   "version": "0.0.10",
-  "description": "Prebuilt linux-x64-gnu native addon package for @esplus/node-addon-internal-loader.",
+  "description": "Prebuilt linux-x64-gnu native addon package for node-addon-internal-loader.",
   "main": "./index.js",
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "os": [
     "linux"
@@ -22,7 +22,7 @@
     "prebuilt/"
   ],
   "dependencies": {
-    "@esplus/node-addon-native-custom-loader": "workspace:*"
+    "node-addon-native-custom-loader": "workspace:*"
   },
   "license": "MIT",
   "libc": [

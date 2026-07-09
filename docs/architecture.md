@@ -4,9 +4,9 @@ This repository publishes two Node native addon product families that obtain the
 bootstrap `requireBuiltin()` function from the current Node `Realm` and expose a
 small JS API around it:
 
-- `@esplus/node-addon-internal-loader`: whitelisted access to the CJS and ESM
+- `node-addon-internal-loader`: whitelisted access to the CJS and ESM
   loader internals.
-- `@esplus/node-addon-require-builtin`: unrestricted forwarding to Node's
+- `node-addon-require-builtin`: unrestricted forwarding to Node's
   builtin require.
 
 Both products have a stable public loading shell, but their core behavior is
@@ -30,7 +30,7 @@ JS entry package / shared optional package loader
 ## JS Loader Layer
 
 Each published entry package loads one native binary through
-`@esplus/node-addon-native-custom-loader`. The entry packages call
+`node-addon-native-custom-loader`. The entry packages call
 `createEntryApi(packageDir)`, so the shared loader derives product and package
 names from the installed entry package instead of hardcoding one family.
 

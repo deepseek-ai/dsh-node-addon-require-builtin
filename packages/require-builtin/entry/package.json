@@ -1,5 +1,5 @@
 {
-  "name": "@esplus/node-addon-require-builtin",
+  "name": "node-addon-require-builtin",
   "version": "0.0.10",
   "type": "commonjs",
   "description": "Node-API addon with runtime probing for internal access (unrestricted require-builtin variant).",
@@ -13,7 +13,7 @@
     "./package.json": "./package.json"
   },
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "files": [
     "README.md",
@@ -32,15 +32,15 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@esplus/node-addon-native-custom-loader": "workspace:*"
+    "node-addon-native-custom-loader": "workspace:*"
   },
   "optionalDependencies": {
-    "@esplus/node-addon-require-builtin-darwin-arm64": "workspace:*",
-    "@esplus/node-addon-require-builtin-darwin-x64": "workspace:*",
-    "@esplus/node-addon-require-builtin-linux-arm64-gnu": "workspace:*",
-    "@esplus/node-addon-require-builtin-linux-x64-gnu": "workspace:*",
-    "@esplus/node-addon-require-builtin-win32-arm64-msvc": "workspace:*",
-    "@esplus/node-addon-require-builtin-win32-ia32-msvc": "workspace:*",
-    "@esplus/node-addon-require-builtin-win32-x64-msvc": "workspace:*"
+    "node-addon-require-builtin-darwin-arm64": "workspace:*",
+    "node-addon-require-builtin-darwin-x64": "workspace:*",
+    "node-addon-require-builtin-linux-arm64-gnu": "workspace:*",
+    "node-addon-require-builtin-linux-x64-gnu": "workspace:*",
+    "node-addon-require-builtin-win32-arm64-msvc": "workspace:*",
+    "node-addon-require-builtin-win32-ia32-msvc": "workspace:*",
+    "node-addon-require-builtin-win32-x64-msvc": "workspace:*"
   }
 }

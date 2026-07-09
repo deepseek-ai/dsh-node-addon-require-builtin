@@ -1,5 +1,5 @@
 {
-  "name": "@esplus/node-addon-internal-loader-hmr-comparison",
+  "name": "node-addon-internal-loader-hmr-comparison",
   "version": "0.0.10",
   "private": true,
   "type": "module",

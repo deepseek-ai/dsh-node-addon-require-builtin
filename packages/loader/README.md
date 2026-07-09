@@ -1,7 +1,7 @@
-# @esplus/node-addon-native-custom-loader
+# node-addon-native-custom-loader
 
-Shared CommonJS loader used by the `@esplus/node-addon-require-builtin` and
-`@esplus/node-addon-internal-loader` package families, and by their platform
+Shared CommonJS loader used by the `node-addon-require-builtin` and
+`node-addon-internal-loader` package families, and by their platform
 optional packages.
 
 This package is published separately so entry and platform packages across both

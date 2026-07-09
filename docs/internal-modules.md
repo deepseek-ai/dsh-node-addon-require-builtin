@@ -1,10 +1,10 @@
 # Internal Module Allowlist
 
-`@esplus/node-addon-internal-loader` exposes only a small allowlist of Node
+`node-addon-internal-loader` exposes only a small allowlist of Node
 internal modules. The list is enforced in the native addon before Node's
 private `requireBuiltin()` value is called.
 
-`@esplus/node-addon-require-builtin` is the unrestricted product family. It does
+`node-addon-require-builtin` is the unrestricted product family. It does
 not use this allowlist; `requireBuiltin(id)` forwards any string id to Node.
 
 ## Supported Internal Modules

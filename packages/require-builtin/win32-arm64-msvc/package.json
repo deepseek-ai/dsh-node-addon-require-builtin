@@ -1,10 +1,10 @@
 {
-  "name": "@esplus/node-addon-require-builtin-win32-arm64-msvc",
+  "name": "node-addon-require-builtin-win32-arm64-msvc",
   "version": "0.0.10",
-  "description": "Prebuilt win32-arm64-msvc native addon package for @esplus/node-addon-require-builtin.",
+  "description": "Prebuilt win32-arm64-msvc native addon package for node-addon-require-builtin.",
   "main": "./index.js",
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "os": [
     "win32"
@@ -22,7 +22,7 @@
     "prebuilt/"
   ],
   "dependencies": {
-    "@esplus/node-addon-native-custom-loader": "workspace:*"
+    "node-addon-native-custom-loader": "workspace:*"
   },
   "license": "MIT"
 }

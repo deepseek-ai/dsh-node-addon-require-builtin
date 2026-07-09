@@ -29,7 +29,7 @@ const addonRoot = path.resolve(
   'entry',
 )
 const nativeCacheRoot = path.join(os.tmpdir(), 'narb-hmr-native-cache')
-const hmrNativeCachePackageName = '@esplus/node-addon-internal-loader-hmr-comparison'
+const hmrNativeCachePackageName = 'node-addon-internal-loader-hmr-comparison'
 const hmrNativeCacheVersion = '0.0.0'
 
 let restoreNativeCacheLoader: (() => void) | undefined
