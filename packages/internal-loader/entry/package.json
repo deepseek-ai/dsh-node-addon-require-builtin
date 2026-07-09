@@ -1,6 +1,6 @@
 {
   "name": "node-addon-internal-loader",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "type": "commonjs",
   "description": "Node-API addon with runtime probing for internal access (cjs/esm loader whitelist variant).",
   "main": "lib/index.js",

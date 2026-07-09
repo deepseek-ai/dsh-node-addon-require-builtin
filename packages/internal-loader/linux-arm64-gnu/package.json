@@ -1,6 +1,6 @@
 {
   "name": "node-addon-internal-loader-linux-arm64-gnu",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Prebuilt linux-arm64-gnu native addon package for node-addon-internal-loader.",
   "main": "./index.js",
   "publishConfig": {
