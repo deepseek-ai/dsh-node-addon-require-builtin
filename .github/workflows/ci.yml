@@ -134,6 +134,7 @@ jobs:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
           NARB_DISABLE_LOCAL_BUILD: 1
+          NARB_TRACE: 1
 
       - name: Prepare Node.js public headers
         run: pnpm -s headers -- --github-env
