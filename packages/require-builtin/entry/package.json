@@ -1,6 +1,6 @@
 {
   "name": "@esplus/node-addon-require-builtin",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "type": "commonjs",
   "description": "Node-API addon with runtime probing for internal access (unrestricted require-builtin variant).",
   "main": "lib/index.js",

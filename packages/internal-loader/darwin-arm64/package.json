@@ -1,6 +1,6 @@
 {
   "name": "@esplus/node-addon-internal-loader-darwin-arm64",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Prebuilt darwin-arm64 native addon package for @esplus/node-addon-internal-loader.",
   "main": "./index.js",
   "publishConfig": {

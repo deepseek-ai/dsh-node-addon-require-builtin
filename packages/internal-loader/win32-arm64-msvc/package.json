@@ -1,6 +1,6 @@
 {
   "name": "@esplus/node-addon-internal-loader-win32-arm64-msvc",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Prebuilt win32-arm64-msvc native addon package for @esplus/node-addon-internal-loader.",
   "main": "./index.js",
   "publishConfig": {
