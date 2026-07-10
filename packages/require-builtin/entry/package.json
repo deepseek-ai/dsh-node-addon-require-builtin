@@ -1,6 +1,6 @@
 {
   "name": "node-addon-require-builtin",
-  "version": "0.0.11",
+  "version": "0.1.0",
   "type": "commonjs",
   "description": "Node-API addon with runtime probing for internal access (unrestricted require-builtin variant).",
   "main": "lib/index.js",
