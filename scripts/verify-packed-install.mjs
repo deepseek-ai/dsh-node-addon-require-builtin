@@ -130,8 +130,9 @@ function verifyTarballCoverage() {
 }
 
 // Build a minimal installed tree from local tarballs only (no registry access
-// for the private optional packages) and run the family entry's install
-// lifecycle + a runtime smoke test against the exact packed files.
+// for the private optional packages) and run a runtime smoke test against the
+// exact packed files. The entry package no longer ships an install lifecycle
+// script, so the fail-closed path is exercised at require() time below.
 function verifyFamily(family) {
   const entryManifest = readJson(path.join(root, entryDirFor(family), 'package.json'));
   const entryPackageName = entryManifest.name;
@@ -149,35 +150,37 @@ function verifyFamily(family) {
   unpackTarball(entryManifest);
 
   const entryInstallDir = packageInstallDir(entryPackageName);
-  const entryInstallScript = path.join(entryInstallDir, 'scripts', 'install.js');
   const entryPackedManifest = readJson(path.join(entryInstallDir, 'package.json'));
-  if (entryPackedManifest.scripts?.install !== 'node ./scripts/install.js') {
-    throw new Error(`unexpected packed install script: ${entryPackedManifest.scripts?.install}`);
+  if (entryPackedManifest.scripts?.install !== undefined) {
+    throw new Error(
+      `packed entry unexpectedly ships an install script: ${entryPackedManifest.scripts.install}`,
+    );
   }
 
-  run(process.execPath, [entryInstallScript], {
-    cwd: entryInstallDir,
-    env: { CI: 'true' },
-  });
-
+  // With the current platform's optional package removed and local source
+  // builds disabled, loading the entry must fail closed at require() time.
   const optionalPackageDir = packageInstallDir(currentPlatformPackageName);
   const disabledOptionalPackageDir = `${optionalPackageDir}.disabled`;
   fs.renameSync(optionalPackageDir, disabledOptionalPackageDir);
   try {
-    const result = spawnSync(process.execPath, [entryInstallScript], {
-      cwd: entryInstallDir,
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        CI: 'true',
+    const result = spawnSync(
+      process.execPath,
+      ['-e', `require(${JSON.stringify(entryPackageName)});`],
+      {
+        cwd: tempRoot,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          NARB_DISABLE_LOCAL_BUILD: '1',
+        },
       },
-    });
+    );
     const output = `${result.stdout || ''}${result.stderr || ''}`;
     if (result.status === 0) {
-      throw new Error('packed install succeeded without current platform optional package');
+      throw new Error('packed entry loaded without current platform optional package');
     }
-    if (!output.includes('Source fallback is disabled')) {
-      throw new Error(`packed install did not fail closed with source fallback message:\n${output}`);
+    if (!output.includes('No usable native binding found')) {
+      throw new Error(`packed entry did not fail closed with the loader error:\n${output}`);
     }
   } finally {
     fs.renameSync(disabledOptionalPackageDir, optionalPackageDir);

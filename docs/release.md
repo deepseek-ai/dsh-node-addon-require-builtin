@@ -88,8 +88,9 @@ versions, no local registry, and no generated files outside the intended
 contain the shared loader first, then each family's platform packages followed
 by that family's entry package.
 
-Also verify that the packed tarballs install cleanly with lifecycle scripts
-enabled:
+Also verify that the packed tarballs install cleanly and that each family entry
+loads its prebuilt binary (and fails closed when the platform package is
+absent):
 
 ```sh
 node ./scripts/pack-release.mjs "$tmpdir"
