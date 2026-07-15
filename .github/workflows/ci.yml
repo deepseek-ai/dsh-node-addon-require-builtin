@@ -208,6 +208,16 @@ jobs:
           NARB_EXPECTED_BACKEND: napi
           NARB_DISABLE_LOCAL_BUILD: 1
 
+      # Keep the nodeabi check on the same latest stable runtime as before the
+      # nightly test. Windows x86 remains on Node 22 because later releases do
+      # not publish x86 binaries.
+      - name: Restore Node 26 for nodeabi source build
+        if: matrix.platform != 'win32-ia32-msvc'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          architecture: ${{ matrix.nodearch }}
+
       - name: Prepare Node.js public headers
         run: pnpm -s headers -- --github-env
 
