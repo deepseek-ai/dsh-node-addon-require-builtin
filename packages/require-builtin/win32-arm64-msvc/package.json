@@ -1,6 +1,6 @@
 {
   "name": "node-addon-require-builtin-win32-arm64-msvc",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Prebuilt win32-arm64-msvc native addon package for node-addon-require-builtin.",
   "main": "./index.js",
   "publishConfig": {
