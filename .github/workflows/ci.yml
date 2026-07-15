@@ -68,9 +68,6 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Test install script helpers
-        run: node ./test/install-script.test.js
-
       - name: Test getter decoder
         # The decoder walks a byte buffer and is host-architecture independent,
         # so the POSIX runners cover every platform's getter shape. Skipped on

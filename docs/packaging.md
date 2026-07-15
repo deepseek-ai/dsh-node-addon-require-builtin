@@ -72,8 +72,8 @@ The entry package loader:
 3. Loads `<entry-package-name>-<platform>` when installed.
 4. Reads the platform package `prebuilds.json`.
 5. Loads the `napi-v9` binary in `auto` mode.
-6. Fails closed when no optional prebuild works. Published packages do not
-   compile native sources at install time.
+6. Fails closed when no optional prebuild works. Published packages never
+   compile native sources.
 
 Every native binding must return matching `product`, `backend`, and `abi`
 values from `getNativeBindingInfo()`. Loading a binary with the wrong metadata
@@ -89,18 +89,24 @@ path so it stays short on Windows. The content hash is used only to verify the
 cached file; if it does not match, or cache creation fails, the loader falls
 back to the original package-managed path.
 
-## Install Fallback
+## Missing Prebuilds
 
-Each entry package includes `scripts/install.js`. If no optional prebuild
-passes validation in a published install, installation fails with a clear
-unsupported message. Source builds are repository development and CI workflows
-only; native sources live in `packages/native` and are not shipped in the entry
-packages.
+The entry packages do not run an install lifecycle script. Prebuilt binaries
+ship in the per-platform optional packages, so `npm`/`pnpm`/`yarn` install them
+without executing any build step — and package managers that gate build scripts
+(such as pnpm's approve-builds prompt) do not flag these packages.
 
-Install validation calls `requireBuiltin('internal/modules/cjs/loader')` and
-`requireBuiltin('internal/modules/esm/loader')` through the package API because
-a binary that loads but cannot obtain those internal modules is not usable for
-either product family.
+When no optional prebuild matches the current platform and runtime, loading the
+entry fails closed at `require()` time with a clear `No usable native binding
+found` error from the shared loader. Published packages never compile native
+sources: source builds are repository development and CI workflows only, and the
+native sources under `packages/native` are not shipped in the entry packages.
+
+The loader obtains its bindings by calling
+`requireBuiltin('internal/modules/cjs/loader')` and
+`requireBuiltin('internal/modules/esm/loader')` through the native binding,
+because a binary that loads but cannot obtain those internal modules is not
+usable for either product family.
 
 ## Release Outputs
 
