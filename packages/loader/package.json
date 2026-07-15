@@ -1,6 +1,6 @@
 {
   "name": "node-addon-native-custom-loader",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "commonjs",
   "description": "Shared native binary loader for the node-addon-require-builtin and node-addon-internal-loader package families.",
   "main": "lib/index.js",
