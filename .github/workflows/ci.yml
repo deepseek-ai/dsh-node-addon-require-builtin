@@ -93,6 +93,21 @@ jobs:
           NARB_EXPECTED_BACKEND: napi
           NARB_DISABLE_LOCAL_BUILD: 1
 
+      - name: Test N-API prebuild on Node 21
+        uses: actions/setup-node@v4
+        with:
+          node-version: 21
+          architecture: ${{ matrix.nodearch }}
+
+      - name: Test N-API prebuild on Node 21
+        run: |
+          node ./test/backend.test.js
+          node --expose-internals ./test/require-parity.test.js
+        env:
+          NARB_BACKEND: napi
+          NARB_EXPECTED_BACKEND: napi
+          NARB_DISABLE_LOCAL_BUILD: 1
+
       - name: Test N-API prebuild on Node 22
         uses: actions/setup-node@v4
         with:
@@ -100,6 +115,23 @@ jobs:
           architecture: ${{ matrix.nodearch }}
 
       - name: Test N-API prebuild on Node 22
+        run: |
+          node ./test/backend.test.js
+          node --expose-internals ./test/require-parity.test.js
+        env:
+          NARB_BACKEND: napi
+          NARB_EXPECTED_BACKEND: napi
+          NARB_DISABLE_LOCAL_BUILD: 1
+
+      - name: Test N-API prebuild on Node 23
+        if: matrix.platform != 'win32-ia32-msvc'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 23
+          architecture: ${{ matrix.nodearch }}
+
+      - name: Test N-API prebuild on Node 23
+        if: matrix.platform != 'win32-ia32-msvc'
         run: |
           node ./test/backend.test.js
           node --expose-internals ./test/require-parity.test.js
@@ -125,6 +157,23 @@ jobs:
           NARB_EXPECTED_BACKEND: napi
           NARB_DISABLE_LOCAL_BUILD: 1
 
+      - name: Test N-API prebuild on Node 25
+        if: matrix.platform != 'win32-ia32-msvc'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          architecture: ${{ matrix.nodearch }}
+
+      - name: Test N-API prebuild on Node 25
+        if: matrix.platform != 'win32-ia32-msvc'
+        run: |
+          node ./test/backend.test.js
+          node --expose-internals ./test/require-parity.test.js
+        env:
+          NARB_BACKEND: napi
+          NARB_EXPECTED_BACKEND: napi
+          NARB_DISABLE_LOCAL_BUILD: 1
+
       - name: Test N-API prebuild on Node 26
         if: matrix.platform != 'win32-ia32-msvc'
         uses: actions/setup-node@v4
@@ -133,6 +182,23 @@ jobs:
           architecture: ${{ matrix.nodearch }}
 
       - name: Test N-API prebuild on Node 26
+        if: matrix.platform != 'win32-ia32-msvc'
+        run: |
+          node ./test/backend.test.js
+          node --expose-internals ./test/require-parity.test.js
+        env:
+          NARB_BACKEND: napi
+          NARB_EXPECTED_BACKEND: napi
+          NARB_DISABLE_LOCAL_BUILD: 1
+
+      - name: Test N-API prebuild on Node 27 nightly
+        if: matrix.platform != 'win32-ia32-msvc'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 27-nightly
+          architecture: ${{ matrix.nodearch }}
+
+      - name: Test N-API prebuild on Node 27 nightly
         if: matrix.platform != 'win32-ia32-msvc'
         run: |
           node ./test/backend.test.js
