@@ -235,14 +235,124 @@ function binaryTag(selectedBackend: string, options: BuildTagOptions = {}): stri
   return `nodeabi-v${options.nodeModuleVersion || process.versions.modules}`;
 }
 
+const PT_INTERP = 3;
+
+/**
+ * Read the ELF program interpreter (PT_INTERP) path of an executable, or
+ * return undefined when the file is not a parseable ELF64 little-endian
+ * dynamic executable (static binaries have no PT_INTERP). Only the ELF64 LE
+ * layout is parsed — every published Linux prebuild target (x64, arm64 glibc)
+ * is ELF64 LE — and any structural anomaly returns undefined so the caller
+ * falls back instead of trusting a guess.
+ */
+export function elfInterpreter(executablePath: string): string | undefined {
+  let fd: number;
+  try {
+    fd = fs.openSync(executablePath, 'r');
+  } catch {
+    return undefined;
+  }
+  try {
+    const header = Buffer.alloc(64);
+    if (fs.readSync(fd, header, 0, header.length, 0) !== header.length) return undefined;
+    if (header.readUInt32BE(0) !== 0x7f454c46) return undefined;
+    if (header[4] !== 2 || header[5] !== 1) return undefined;
+    const tableOffset = header.readBigUInt64LE(0x20);
+    const entrySize = header.readUInt16LE(0x36);
+    const entryCount = header.readUInt16LE(0x38);
+    if (tableOffset > BigInt(Number.MAX_SAFE_INTEGER) || entrySize < 56 || entryCount === 0 || entryCount > 128) {
+      return undefined;
+    }
+    const table = Buffer.alloc(entrySize * entryCount);
+    if (fs.readSync(fd, table, 0, table.length, Number(tableOffset)) !== table.length) return undefined;
+    for (let index = 0; index < entryCount; index += 1) {
+      const entry = table.subarray(index * entrySize, (index + 1) * entrySize);
+      if (entry.readUInt32LE(0) !== PT_INTERP) continue;
+      const segmentOffset = entry.readBigUInt64LE(0x08);
+      const segmentSize = entry.readBigUInt64LE(0x20);
+      if (segmentOffset > BigInt(Number.MAX_SAFE_INTEGER) || segmentSize === 0n || segmentSize > 4096n) {
+        return undefined;
+      }
+      const interpreter = Buffer.alloc(Number(segmentSize));
+      if (fs.readSync(fd, interpreter, 0, interpreter.length, Number(segmentOffset)) !== interpreter.length) {
+        return undefined;
+      }
+      const nul = interpreter.indexOf(0);
+      return interpreter.toString('utf8', 0, nul === -1 ? interpreter.length : nul);
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+/**
+ * Classify an executable's libc family from its ELF interpreter name —
+ * `ld-musl-*` is musl, `ld-linux*` is glibc — following symlinks so aliased
+ * interpreters (e.g. Homebrew's `lib/ld.so` -> the system glibc loader)
+ * classify by what they resolve to. Undefined when the executable is static,
+ * unreadable, or its interpreter name matches neither family.
+ */
+export function libcFromExecutable(executablePath: string): 'glibc' | 'musl' | undefined {
+  const interpreter = elfInterpreter(executablePath);
+  if (interpreter === undefined) return undefined;
+  const candidates = [interpreter];
+  try {
+    candidates.push(fs.realpathSync(interpreter));
+  } catch {
+    // Interpreter path from the ELF image may not exist in this mount
+    // namespace; classify from the raw name alone.
+  }
+  for (const candidate of candidates) {
+    const base = path.basename(candidate);
+    if (base.includes('musl')) return 'musl';
+    if (base.startsWith('ld-linux')) return 'glibc';
+  }
+  return undefined;
+}
+
+/**
+ * Classify the running process's libc family from its own memory mappings —
+ * the mapped libc is authoritative for what the loaded addon must match.
+ * Undefined when /proc is unavailable or no recognizable libc is mapped.
+ */
+function libcFromProcMaps(): 'glibc' | 'musl' | undefined {
+  let maps: string;
+  try {
+    maps = fs.readFileSync('/proc/self/maps', 'utf8');
+  } catch {
+    return undefined;
+  }
+  if (/\/ld-musl-|\/libc\.musl-/.test(maps)) return 'musl';
+  if (/\/libc\.so\.6|\/libc-2\.\d+\.so/.test(maps)) return 'glibc';
+  return undefined;
+}
+
+let linuxLibcResolved = false;
+let cachedLinuxLibc: 'glibc' | 'musl' | undefined;
+
 function linuxLibc(): 'glibc' | 'musl' | undefined {
   if (process.platform !== 'linux') return undefined;
-  const report = process.report && typeof process.report.getReport === 'function'
-    ? process.report.getReport() as { header?: { glibcVersionRuntime?: string } }
-    : null;
-  return report && report.header && report.header.glibcVersionRuntime
-    ? 'glibc'
-    : 'musl';
+  if (linuxLibcResolved) return cachedLinuxLibc;
+  // Cheap signals first: the node binary's ELF interpreter, then the mapped
+  // libc in /proc/self/maps. process.report.getReport() stays as the last
+  // resort only (and keeps the pre-existing musl default when even it is
+  // unavailable): its CPU enumeration opens every sysfs cpufreq entry with a
+  // live frequency query, which takes seconds on many-CPU hosts — the reason
+  // requiring this package could stall multi-CPU launches by seconds.
+  cachedLinuxLibc = libcFromExecutable(process.execPath) ?? libcFromProcMaps();
+  if (cachedLinuxLibc === undefined) {
+    const report = process.report && typeof process.report.getReport === 'function'
+      ? process.report.getReport() as { header?: { glibcVersionRuntime?: string } }
+      : null;
+    cachedLinuxLibc = report && report.header && report.header.glibcVersionRuntime
+      ? 'glibc'
+      : 'musl';
+  }
+  linuxLibcResolved = true;
+  return cachedLinuxLibc;
 }
 
 function runtimeSuffix(): string {
