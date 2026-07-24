@@ -38,7 +38,11 @@ Selection order:
 
 1. Resolve the entry package name and product family.
 2. Resolve the current platform suffix, such as `darwin-arm64` or
-   `linux-x64-gnu`.
+   `linux-x64-gnu`. The Linux libc family comes from cheap signals — the node
+   binary's ELF interpreter, then the libc mapped in `/proc/self/maps` —
+   because the `process.report.getReport()` last resort enumerates every
+   sysfs-exposed CPU with a live frequency query, which takes seconds on
+   many-CPU hosts.
 3. Try the matching platform optional package unless
    `NARB_DISABLE_OPTIONAL_PACKAGE=1`.
 4. In the optional package, load the `napi-v9` binary for the current platform.

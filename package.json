@@ -15,7 +15,7 @@
     "build:prebuild:napi": "pnpm build:ts && NARB_BACKEND=napi NARB_BUILD_OUTPUT=prebuild pnpm build:native",
     "build:prebuild:nodeabi": "pnpm build:ts && (test -n \"$NODE_JS_PUBLIC_INCLUDE_DIRS\" || (echo 'NODE_JS_PUBLIC_INCLUDE_DIRS is required. Run: eval \"$(pnpm -s headers -- --version <node-version>)\"' >&2; exit 1)) && NARB_BACKEND=nodeabi NARB_BUILD_OUTPUT=prebuild pnpm build:native",
     "build:prebuilds": "pnpm build:ts && NARB_BACKEND=napi NARB_BUILD_OUTPUT=prebuild pnpm build:native && (test -n \"$NODE_JS_PUBLIC_INCLUDE_DIRS\" || (echo 'NODE_JS_PUBLIC_INCLUDE_DIRS is required. Run: eval \"$(pnpm -s headers -- --version <node-version>)\"' >&2; exit 1)) && NARB_BACKEND=nodeabi NARB_BUILD_OUTPUT=prebuild pnpm build:native",
-    "test": "pnpm build && NARB_BACKEND=napi NARB_EXPECTED_BACKEND=napi NARB_DISABLE_OPTIONAL_PACKAGE=1 node ./test/backend.test.js",
+    "test": "pnpm build && node ./test/libc.test.js && NARB_BACKEND=napi NARB_EXPECTED_BACKEND=napi NARB_DISABLE_OPTIONAL_PACKAGE=1 node ./test/backend.test.js",
     "test:require-builtin": "NARB_PRODUCT=require-builtin pnpm test",
     "test:internal-loader": "NARB_PRODUCT=internal-loader pnpm test",
     "test:products": "pnpm test:require-builtin && pnpm test:internal-loader",
