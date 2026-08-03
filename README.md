@@ -155,9 +155,10 @@ The supported optional prebuild target set is intentionally conservative:
 | Windows x64 MSVC (`win32-x64-msvc`) | Supported | Supported | Supported | Supported |
 
 Both product families publish one `napi-v9` binary per supported platform,
-tested across Node 20, 22, 24, and 26. Linux musl is not published yet. Node.js
-stopped shipping 32-bit Windows binaries after v22, so `win32-ia32-msvc` covers
-only Node 20 and 22.
+tested across Node 20, 22, 24, and 26. Linux GNU prebuilds require glibc 2.28 or
+newer and a `GLIBCXX_3.4.25`-compatible C++ runtime. Linux musl is not published yet.
+Node.js stopped shipping 32-bit Windows binaries after v22, so
+`win32-ia32-msvc` covers only Node 20 and 22.
 See [docs/support-matrix.md](docs/support-matrix.md) and
 [docs/internal-modules.md](docs/internal-modules.md).
 

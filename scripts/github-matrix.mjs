@@ -10,8 +10,10 @@ const RUNNERS = {
   'linux-arm64-gnu': 'ubuntu-24.04-arm',
   'linux-x64-gnu': 'ubuntu-24.04',
   'win32-arm64-msvc': 'windows-11-arm',
-  'win32-ia32-msvc': 'windows-2025',
-  'win32-x64-msvc': 'windows-2025',
+  // Keep release builds on the oldest supported hosted Windows image so a
+  // runner/toolset update cannot silently raise the prebuild's OS baseline.
+  'win32-ia32-msvc': 'windows-2022',
+  'win32-x64-msvc': 'windows-2022',
 };
 
 const NODE_ARCH = {
