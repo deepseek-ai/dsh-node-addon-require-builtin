@@ -68,6 +68,8 @@ jobs:
       - name: Build N-API prebuild
         if: runner.os != 'Linux'
         run: pnpm build:prebuild:napi
+        env:
+          npm_config_msvs_version: ${{ runner.os == 'Windows' && '2022' || '' }}
 
       - name: Build and test N-API prebuild on glibc 2.28
         if: runner.os == 'Linux'
@@ -151,6 +153,33 @@ jobs:
             echo "Linux prebuild does not declare its shared libstdc++ runtime" >&2
             exit 1
           fi
+
+      - name: Verify Windows prebuild compatibility
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $file = '${{ matrix.prebuilt_path }}/${{ matrix.filename }}'
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installation = & $vswhere -latest -products * -property installationPath
+          if (-not $installation) {
+            throw 'Visual Studio installation not found'
+          }
+          $pattern = Join-Path $installation 'VC\Tools\MSVC\*\bin\Host*\*\dumpbin.exe'
+          $dumpbin = Get-ChildItem $pattern | Select-Object -First 1
+          if (-not $dumpbin) {
+            throw 'dumpbin.exe not found'
+          }
+
+          $dependencies = & $dumpbin.FullName /DEPENDENTS $file | Out-String
+          Write-Host $dependencies
+          $forbidden = [regex]::Matches(
+            $dependencies,
+            '(?im)^\s*((?:vcruntime|msvcp|ucrtbase|api-ms-win-crt)[^\s]*\.dll)\s*$'
+          )
+          if ($forbidden.Count -ne 0) {
+            $names = $forbidden | ForEach-Object { $_.Groups[1].Value }
+            throw "Windows prebuild has dynamic C/C++ runtime dependencies: $($names -join ', ')"
+          }
 
       - name: Test N-API prebuild on Node 20
         uses: actions/setup-node@v4

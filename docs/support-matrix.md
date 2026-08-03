@@ -43,6 +43,10 @@ They share the process C++ runtime instead of embedding another `libstdc++` or
 `libgcc`. CI builds and loads them against the manylinux 2.28 system libraries
 and rejects artifacts requiring newer than `GLIBC_2.28` or `GLIBCXX_3.4.25`.
 
+Windows x64 and x86 prebuilds are built and tested on the Windows Server 2022
+runner; ARM64 uses the Windows 11 ARM runner. All Windows builds pin Visual
+Studio 2022 and CI rejects dynamic MSVC/UCRT runtime dependencies.
+
 Published backend artifacts for each product family:
 
 | Platform suffix | Optional package backend artifacts |
