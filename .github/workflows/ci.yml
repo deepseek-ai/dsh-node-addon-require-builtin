@@ -76,7 +76,87 @@ jobs:
         run: pnpm test:decoder
 
       - name: Build N-API prebuild
+        if: runner.os != 'Linux'
         run: pnpm build:prebuild:napi
+
+      - name: Build and test N-API prebuild on glibc 2.28
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          case "$RUNNER_ARCH" in
+            X64) image=quay.io/pypa/manylinux_2_28_x86_64:latest ;;
+            ARM64) image=quay.io/pypa/manylinux_2_28_aarch64:latest ;;
+            *) echo "unsupported Linux runner architecture: $RUNNER_ARCH" >&2; exit 1 ;;
+          esac
+
+          node_root="$(dirname "$(dirname "$(command -v node)")")"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --env HOME=/tmp \
+            --env NARB_BACKEND=napi \
+            --env NARB_BUILD_OUTPUT=prebuild \
+            --env NARB_PRODUCT \
+            --volume "$node_root:/opt/node:ro" \
+            --volume "$GITHUB_WORKSPACE:/workspace" \
+            --workdir /workspace \
+            "$image" \
+            bash -ceu '
+              export PATH=/opt/node/bin:$PATH
+              printf "%s\n" \
+                "#!/usr/bin/env bash" \
+                "exec g++ \"\$@\" -ldl" \
+                > /tmp/narb-cxx
+              chmod +x /tmp/narb-cxx
+              export CXX=/tmp/narb-cxx
+
+              node --import tsx ./scripts/build.ts
+              env -u LD_LIBRARY_PATH \
+                NARB_EXPECTED_BACKEND=napi NARB_DISABLE_LOCAL_BUILD=1 \
+                node ./test/backend.test.js
+              env -u LD_LIBRARY_PATH NARB_DISABLE_LOCAL_BUILD=1 \
+                node --expose-internals ./test/require-parity.test.js
+            '
+
+      - name: Verify Linux prebuild compatibility
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          file='${{ matrix.prebuilt_path }}/${{ matrix.filename }}'
+          max_glibc="$({
+            readelf --version-info "$file" \
+              | sed -n 's/.*Name: GLIBC_\([0-9][0-9.]*\).*/\1/p'
+          } | sort -Vu | tail -n 1)"
+          if [ -z "$max_glibc" ]; then
+            echo "no GLIBC version requirements found in $file" >&2
+            exit 1
+          fi
+          if [ "$(printf '%s\n' 2.28 "$max_glibc" | sort -V | tail -n 1)" != 2.28 ]; then
+            echo "glibc floor regressed: GLIBC_$max_glibc is newer than GLIBC_2.28" >&2
+            exit 1
+          fi
+
+          max_glibcxx="$({
+            readelf --version-info "$file" \
+              | sed -n 's/.*Name: GLIBCXX_\([0-9][0-9.]*\).*/\1/p'
+          } | sort -Vu | tail -n 1)"
+          if [ -z "$max_glibcxx" ]; then
+            echo "no GLIBCXX version requirements found in $file" >&2
+            exit 1
+          fi
+          if [ "$(printf '%s\n' 3.4.25 "$max_glibcxx" | sort -V | tail -n 1)" != 3.4.25 ]; then
+            echo "libstdc++ floor regressed: GLIBCXX_$max_glibcxx is newer than GLIBCXX_3.4.25" >&2
+            exit 1
+          fi
+
+          dynamic="$(readelf --dynamic "$file")"
+          grep -q 'Shared library: \[libdl.so.2\]' <<<"$dynamic" || {
+            echo "Linux prebuild does not declare its libdl.so.2 dependency" >&2
+            exit 1
+          }
+          if ! grep -q 'Shared library: \[libstdc++\.so\.6\]' <<<"$dynamic"; then
+            echo "Linux prebuild does not declare its shared libstdc++ runtime" >&2
+            exit 1
+          fi
 
       - name: Test N-API prebuild on Node 20
         uses: actions/setup-node@v4

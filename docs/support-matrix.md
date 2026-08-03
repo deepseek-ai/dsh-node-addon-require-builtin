@@ -38,6 +38,11 @@ Node.js stopped publishing 32-bit Windows (`win-x86`) binaries after v22, so
 `win32-ia32-msvc` is limited to Node 20 and 22; there is no v24/v26 32-bit
 runtime to build against or test on.
 
+The Linux GNU prebuilds target glibc 2.28 and explicitly link `libdl.so.2`.
+They share the process C++ runtime instead of embedding another `libstdc++` or
+`libgcc`. CI builds and loads them against the manylinux 2.28 system libraries
+and rejects artifacts requiring newer than `GLIBC_2.28` or `GLIBCXX_3.4.25`.
+
 Published backend artifacts for each product family:
 
 | Platform suffix | Optional package backend artifacts |
