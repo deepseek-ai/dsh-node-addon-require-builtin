@@ -55,13 +55,23 @@ first, then a wider 32-byte window for bodies that do not terminate inside it.
 
 CI runs the prebuilds against Fedora's own packages on both architectures,
 covering Node 20/22/24 on Fedora 44 and Node 22/24/26 on rawhide (neither release
-carries all four streams). Each job prints the branch-protection census of the
-`libnode` it installed, so which distributions harden their builds stays a
-measured fact rather than an assumption — Ubuntu 24.04, for instance, applies no
-branch protection at all and its Node is below this project's floor. The decoder's
-own self-test replays archived machine code from three toolchains across an
-optimization and hardening matrix, plus bytes read out of shipped binaries; see
-`scripts/collect-getter-fixtures.mjs`.
+carries all four streams), alongside Debian, RHEL rebuilds, openSUSE and Ubuntu.
+Each job prints the branch-protection census of the `libnode` it installed, so
+which distributions harden their builds stays a measured fact rather than an
+assumption. Measured so far: Debian enables branch protection but as `pac-ret`
+without `+leaf`, so its getter stays 12 bytes; RHEL 9 rebuilds predate aarch64
+branch protection entirely; Ubuntu 24.04 applies none and its Node is below this
+project's floor.
+
+One packaging choice is outright unsupportable: Amazon Linux 2023 links Node
+statically with no shared `libnode`, so the private getter symbol is not exported
+and cannot be resolved at all. Any distribution that links Node statically and
+strips its private symbols is out of reach for this approach, independently of the
+getter's machine-code shape.
+
+The decoder's own self-test replays archived machine code from three toolchains
+across an optimization and hardening matrix, plus bytes read out of shipped
+binaries; see `scripts/collect-getter-fixtures.mjs`.
 
 Windows x64 and x86 prebuilds are built and tested on the Windows Server 2022
 runner; ARM64 uses the Windows 11 ARM runner. All Windows builds pin Visual
