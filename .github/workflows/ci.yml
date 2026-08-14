@@ -16,6 +16,7 @@ jobs:
     outputs:
       platforms: ${{ steps.matrix.outputs.platforms }}
       hmr_platforms: ${{ steps.matrix.outputs.hmr_platforms }}
+      distro_platforms: ${{ steps.matrix.outputs.distro_platforms }}
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +24,7 @@ jobs:
         run: |
           echo "platforms=$(node ./scripts/github-matrix.mjs ci-platforms)" >> "$GITHUB_OUTPUT"
           echo "hmr_platforms=$(node ./scripts/github-matrix.mjs ci-hmr-platforms)" >> "$GITHUB_OUTPUT"
+          echo "distro_platforms=$(node ./scripts/github-matrix.mjs ci-distro-platforms)" >> "$GITHUB_OUTPUT"
 
   supported:
     name: 'NAPI Build: ${{ matrix.family }} / ${{ matrix.platform }}'
@@ -340,6 +342,110 @@ jobs:
           path: ${{ matrix.prebuilt_path }}/${{ matrix.filename }}
           if-no-files-found: error
           retention-days: 7
+
+  distro-node:
+    name: 'Distro Node: ${{ matrix.family }} / ${{ matrix.platform }} / ${{ matrix.distro }} node${{ matrix.distro_node }}'
+    needs:
+      - matrix
+      - supported
+    runs-on: ${{ matrix.runner }}
+    # Optional entries cover Node streams a distribution has not packaged yet, so
+    # coverage starts automatically once it does without failing the build first.
+    continue-on-error: ${{ matrix.distro_optional }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix.outputs.distro_platforms) }}
+    env:
+      NARB_PRODUCT: ${{ matrix.family }}
+      NARB_TRACE: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.build_node }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies without package install scripts
+        run: pnpm install --ignore-scripts --frozen-lockfile
+
+      - name: Build TypeScript entrypoints
+        run: pnpm build:ts
+
+      - name: Download N-API prebuild
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.prebuilt_path }}
+
+      # A distribution's Node is a different binary, not just a different version:
+      # typically a thin /usr/bin/node against a shared libnode.so, built with
+      # hardening the nodejs.org binaries do not use. On aarch64 that can mean
+      # `-mbranch-protection=...`, which wraps the private getter the runtime probe
+      # decodes in pointer authentication and a frame record; on x86-64 it can mean
+      # CET `endbr64`. Both change the getter's machine-code shape, so the decoder
+      # is exercised against the real packaged binary rather than only nodejs.org
+      # builds.
+      #
+      # The image tag floats within a distribution release on purpose: a rebuild
+      # that changes compiler flags is exactly the regression this job exists to
+      # catch, so the exact package version is recorded in the log instead of
+      # pinned. Docker Hub has been unreliable for these images, so each entry
+      # names its own registry.
+      - name: Test prebuild against ${{ matrix.distro }} Node ${{ matrix.distro_node }}
+        shell: bash
+        run: |
+          case "$RUNNER_ARCH" in
+            X64) expect_arch=x86_64 ;;
+            ARM64) expect_arch=aarch64 ;;
+            *) echo "unsupported Linux runner architecture: $RUNNER_ARCH" >&2; exit 1 ;;
+          esac
+
+          docker run --rm \
+            --env NARB_BACKEND=napi \
+            --env NARB_EXPECTED_BACKEND=napi \
+            --env NARB_DISABLE_LOCAL_BUILD=1 \
+            --env NARB_DISABLE_OPTIONAL_PACKAGE=1 \
+            --env NARB_PRODUCT \
+            --env NARB_TRACE \
+            --env "EXPECT_ARCH=$expect_arch" \
+            --env "NODE_BIN=${{ matrix.distro_binary }}" \
+            --volume "$GITHUB_WORKSPACE:/workspace" \
+            --workdir /workspace \
+            "${{ matrix.distro_image }}" \
+            bash -ceu '
+              ${{ matrix.distro_install }} >/dev/null
+              ${{ matrix.distro_version_query }}
+              "$NODE_BIN" -v
+
+              test "$(uname -m)" = "$EXPECT_ARCH"
+
+              # Record what this distribution actually links and how it hardened
+              # the build. This is the evidence the matrix is based on: which
+              # distributions apply branch protection is a measured property of
+              # their build flags, not something to assume.
+              ldd "$NODE_BIN" | grep -F libnode.so || \
+                echo "note: statically linked node (no shared libnode)"
+
+              lib=$(ldd "$NODE_BIN" | awk "/libnode\.so/ {print \$3; exit}")
+              if [ -n "$lib" ] && command -v objdump >/dev/null 2>&1; then
+                objdump -d "$lib" > /tmp/dis.txt 2>/dev/null || true
+                printf "hardening census of %s: paciasp=%s bti_c=%s endbr64=%s\n" \
+                  "$lib" \
+                  "$(grep -c "\bpaciasp\b" /tmp/dis.txt || true)" \
+                  "$(grep -c "\bbti\s*c\b" /tmp/dis.txt || true)" \
+                  "$(grep -c "\bendbr64\b" /tmp/dis.txt || true)"
+              fi
+
+              "$NODE_BIN" ./test/backend.test.js
+              "$NODE_BIN" --expose-internals ./test/require-parity.test.js
+            '
 
   hmr-comparison:
     name: 'HMR Test: ${{ matrix.family }} / ${{ matrix.platform }}'

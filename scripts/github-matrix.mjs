@@ -72,10 +72,95 @@ function hmrPlatformMatrix() {
   };
 }
 
+// Distributions that package their own Node, tested against the prebuilds.
+// A distribution build is not just a different version: it is a different binary,
+// usually a thin /usr/bin/node against a shared libnode.so, compiled with
+// hardening the nodejs.org binaries do not use. That hardening changes the
+// machine-code shape of the private getter the runtime probe decodes, so it needs
+// coverage against the real packaged binary.
+//
+// Measured, not assumed:
+//   Fedora       - `rpm --eval %{build_cflags}` on aarch64 yields
+//                  `-mbranch-protection=standard -mno-omit-leaf-frame-pointer`
+//                  (plus stack protector/clash flags). That combination gives even
+//                  this leaf accessor pointer authentication and a frame record: a
+//                  7-instruction, 28-byte body. It is the shape that motivated the
+//                  two-stage decode, and the only distribution shape known to need
+//                  the wider window.
+//   Ubuntu 24.04 - no branch protection at all (0 paciasp, 0 `bti c` across 76569
+//                  functions in the packaged aarch64 libnode), and its Node is 18,
+//                  below this project's floor. Not in the matrix.
+//
+// Each job prints the branch-protection census of the libnode it installed, so
+// this table stays evidence-based: adding a distribution here is how we learn what
+// its build flags do, rather than assuming.
+//
+// Node stream coverage needs two Fedora releases, since neither carries all four:
+//   Fedora 44 -> nodejs20, nodejs22, nodejs24
+//   rawhide   -> nodejs22, nodejs24, nodejs26
+// Using both also gets the GCC version difference between them for free.
+const DISTROS = [
+  {
+    id: 'fedora-44',
+    image: 'registry.fedoraproject.org/fedora:44',
+    // Fedora installs parallel streams as nodejs<N> providing /usr/bin/node-<N>.
+    install: 'dnf install -y --setopt=install_weak_deps=False nodejs%V%',
+    binary: '/usr/bin/node-%V%',
+    version_query: 'rpm -q nodejs%V%-libs',
+    streams: [20, 22, 24],
+    optional_streams: [],
+  },
+  {
+    id: 'fedora-rawhide',
+    image: 'registry.fedoraproject.org/fedora:rawhide',
+    install: 'dnf install -y --setopt=install_weak_deps=False nodejs%V%',
+    binary: '/usr/bin/node-%V%',
+    version_query: 'rpm -q nodejs%V%-libs',
+    // rawhide is where Node 26 landed first (nodejs26-26.3.1-5.fc45). It is a
+    // moving target by definition, so its streams are optional: a rawhide break
+    // should surface here as a warning rather than fail a PR on unrelated churn.
+    streams: [],
+    optional_streams: [22, 24, 26],
+  },
+];
+
+function distroPlatformMatrix() {
+  // Only the glibc Linux platforms: these jobs run a distribution's own Node
+  // package, which exists on Linux only.
+  const include = [];
+  for (const family of FAMILIES) {
+    for (const dir of platformDirsFor(family)) {
+      const platform = path.basename(dir);
+      if (!platform.startsWith('linux-')) continue;
+      const entry = platformEntry(family, dir);
+      for (const distro of DISTROS) {
+        const streams = [
+          ...distro.streams.map((v) => ({ v, optional: false })),
+          ...(distro.optional_streams || []).map((v) => ({ v, optional: true })),
+        ];
+        for (const { v, optional } of streams) {
+          include.push({
+            ...entry,
+            distro: distro.id,
+            distro_image: distro.image,
+            distro_node: v,
+            distro_install: distro.install.replaceAll('%V%', String(v)),
+            distro_binary: distro.binary.replaceAll('%V%', String(v)),
+            distro_version_query: distro.version_query.replaceAll('%V%', String(v)),
+            distro_optional: optional,
+          });
+        }
+      }
+    }
+  }
+  return { include };
+}
+
 const target = process.argv[2];
 const matrices = {
   'ci-platforms': platformMatrix,
   'ci-hmr-platforms': hmrPlatformMatrix,
+  'ci-distro-platforms': distroPlatformMatrix,
   'release-platforms': platformMatrix,
 };
 

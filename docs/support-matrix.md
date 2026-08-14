@@ -43,6 +43,26 @@ They share the process C++ runtime instead of embedding another `libstdc++` or
 `libgcc`. CI builds and loads them against the manylinux 2.28 system libraries
 and rejects artifacts requiring newer than `GLIBC_2.28` or `GLIBCXX_3.4.25`.
 
+Distribution-packaged Node is also covered on Linux. It is not merely a
+different version: Fedora ships Node as a thin `/usr/bin/node` linked against a
+shared `libnode.so`, compiled with hardening the nodejs.org binaries do not use.
+On aarch64 its `%{build_cflags}` combine `-mbranch-protection=standard` with
+`-mno-omit-leaf-frame-pointer`, which give even this leaf accessor pointer
+authentication and a frame record — a 28-byte body where the official build emits
+8 to 12 bytes. Both linux platforms therefore decode the getter in two stages,
+using the same instruction-walking matcher in each: the standard 16-byte window
+first, then a wider 32-byte window for bodies that do not terminate inside it.
+
+CI runs the prebuilds against Fedora's own packages on both architectures,
+covering Node 20/22/24 on Fedora 44 and Node 22/24/26 on rawhide (neither release
+carries all four streams). Each job prints the branch-protection census of the
+`libnode` it installed, so which distributions harden their builds stays a
+measured fact rather than an assumption — Ubuntu 24.04, for instance, applies no
+branch protection at all and its Node is below this project's floor. The decoder's
+own self-test replays archived machine code from three toolchains across an
+optimization and hardening matrix, plus bytes read out of shipped binaries; see
+`scripts/collect-getter-fixtures.mjs`.
+
 Windows x64 and x86 prebuilds are built and tested on the Windows Server 2022
 runner; ARM64 uses the Windows 11 ARM runner. All Windows builds pin Visual
 Studio 2022 and CI rejects dynamic MSVC/UCRT runtime dependencies.
