@@ -425,8 +425,6 @@ jobs:
       - matrix
       - supported
     runs-on: ${{ matrix.runner }}
-    # rawhide is a rolling target, so its churn warns instead of failing the PR.
-    continue-on-error: ${{ matrix.distro_optional }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.matrix.outputs.distro_platforms) }}
@@ -518,26 +516,38 @@ jobs:
                 test "$(uname -m)" = "$EXPECT_ARCH"
 
                 # These are templates from scripts/github-matrix.mjs, not external
-                # input; eval is what expands $V inside them.
+                # input; eval is what expands $V and $node_bin inside them. Nothing
+                # here is tolerated failing: a package that cannot be installed or
+                # identified means the job is not testing what it claims to.
                 eval "$INSTALL" >/dev/null
-                eval "$PROBE" || true
-
                 node_bin=$(eval echo "$BINARY")
+                eval "$PROBE"
                 "$node_bin" -v
 
-                # Record the branch-protection census of this libnode. Which
-                # distributions harden their builds is a measured property of
-                # their flags, so it is logged rather than assumed.
-                lib=$(ldd "$node_bin" | awk "/libnode\.so/ {print \$3; exit}")
-                echo "libnode: ${lib:-none (statically linked)}"
-                if [ -n "$lib" ] && command -v objdump >/dev/null 2>&1; then
-                  objdump -d "$lib" > /tmp/dis.txt 2>/dev/null || true
-                  printf "hardening: paciasp=%s bti_c=%s endbr64=%s retaa=%s\n" \
-                    "$(grep -c "\bpaciasp\b" /tmp/dis.txt || true)" \
-                    "$(grep -c "\bbti\s*c\b" /tmp/dis.txt || true)" \
-                    "$(grep -c "\bendbr64\b" /tmp/dis.txt || true)" \
-                    "$(grep -c "\breta[ab]\b" /tmp/dis.txt || true)"
+                # Record the branch-protection census of the image that actually
+                # contains V8. Which distributions harden their builds is a
+                # measured property of their flags, so it is logged rather than
+                # assumed. A statically linked Node has no shared libnode but can
+                # still export the private symbol (Rocky's nodejs:20 and openSUSE
+                # do), so the census falls back to the interpreter itself rather
+                # than being skipped.
+                # ldd exits non-zero on a static binary; that is the case handled
+                # just below, not an error to propagate.
+                lib=$(ldd "$node_bin" | awk "/libnode\.so/ {print \$3; exit}" || true)
+                if [ -n "$lib" ]; then
+                  echo "libnode: $lib"
+                else
+                  echo "libnode: none (statically linked); censusing $node_bin"
+                  lib="$node_bin"
                 fi
+                objdump -d "$lib" > /tmp/dis.txt
+                # grep -c exits 1 when a count is legitimately zero, which is a
+                # result rather than a failure.
+                printf "hardening: paciasp=%s bti_c=%s endbr64=%s retaa=%s\n" \
+                  "$(grep -c "\bpaciasp\b" /tmp/dis.txt || true)" \
+                  "$(grep -c "\bbti\s*c\b" /tmp/dis.txt || true)" \
+                  "$(grep -c "\bendbr64\b" /tmp/dis.txt || true)" \
+                  "$(grep -c "\breta[ab]\b" /tmp/dis.txt || true)"
 
                 # NARB_TRACE is on, so a decode failure prints the probe trace and
                 # both decode stages reasons, and a binding-resolution failure

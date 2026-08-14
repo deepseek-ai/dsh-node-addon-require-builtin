@@ -53,21 +53,25 @@ authentication and a frame record — a 28-byte body where the official build em
 using the same instruction-walking matcher in each: the standard 16-byte window
 first, then a wider 32-byte window for bodies that do not terminate inside it.
 
-CI runs the prebuilds against Fedora's own packages on both architectures,
-covering Node 20/22/24 on Fedora 44 and Node 22/24/26 on rawhide (neither release
-carries all four streams), alongside Debian, RHEL rebuilds, openSUSE and Ubuntu.
-Each job prints the branch-protection census of the `libnode` it installed, so
-which distributions harden their builds stays a measured fact rather than an
-assumption. Measured so far: Debian enables branch protection but as `pac-ret`
-without `+leaf`, so its getter stays 12 bytes; RHEL 9 rebuilds predate aarch64
-branch protection entirely; Ubuntu 24.04 applies none and its Node is below this
+CI runs the prebuilds against distribution-packaged Node on both architectures,
+with no job allowed to fail softly: Fedora 44 (Node 20/22/24), Fedora rawhide
+(22/24/26), Debian 13, Rocky 9, AlmaLinux 9, Amazon Linux 2023, openSUSE Leap 15.6
+and Ubuntu 26.04. Each job prints the branch-protection census of the image that
+contains V8, so which distributions harden their builds stays a measured fact.
+
+Measured: Fedora is the only one whose getter needs the wider window, because it
+alone pairs branch protection with `-mno-omit-leaf-frame-pointer` and so hardens
+leaf functions (74839+ `paciasp`). Debian, Ubuntu 26.04, the RHEL 9 rebuilds and
+Amazon Linux all enable branch protection as `pac-ret` without `+leaf`, giving a
+few thousand `paciasp` in non-leaf functions and leaving this leaf accessor at
+`bti c; ldr; ret`. Ubuntu 24.04 applies none at all and its Node is below this
 project's floor.
 
-One packaging choice is outright unsupportable: Amazon Linux 2023 links Node
-statically with no shared `libnode`, so the private getter symbol is not exported
-and cannot be resolved at all. Any distribution that links Node statically and
-strips its private symbols is out of reach for this approach, independently of the
-getter's machine-code shape.
+Static linking is not by itself an obstacle: Rocky's `nodejs:20` and openSUSE's
+Node have no shared `libnode` yet still export the private symbol, so the probe
+resolves it. What cannot be supported is static linking *combined with* hidden
+private symbols — Amazon Linux's default `nodejs` 18 is built that way, while its
+versioned `nodejs20`/`nodejs22` packages use the shared layout and work.
 
 The decoder's own self-test replays archived machine code from three toolchains
 across an optimization and hardening matrix, plus bytes read out of shipped

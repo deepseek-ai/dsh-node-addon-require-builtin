@@ -121,41 +121,46 @@ function hmrPlatformMatrix() {
 // machine-code shape of the private getter the runtime probe decodes, so it needs
 // coverage against the real packaged binary.
 //
-// What the measurements so far show, and why the table looks like this:
+// What CI has actually measured on the packaged aarch64 libnode, and why the
+// table looks like this. paciasp counts are what distinguish the cases:
 //
-//   Fedora 44 - `%{build_cflags}` on aarch64 combine `-mbranch-protection=standard`
-//               with `-mno-omit-leaf-frame-pointer`. Together those give even this
-//               leaf accessor pointer authentication and a frame record: a 28-byte,
-//               7-instruction body, the only shape known to need the wide window.
-//   Debian 13 - also enables branch protection (6241 paciasp in trixie's aarch64
-//               libnode) but with pac-ret rather than +leaf, and without forcing a
-//               leaf frame. The getter comes out `bti c; ldr; ret`, 12 bytes.
-//   RHEL 9    - paciasp=0 and effectively no `bti c` in Rocky/Alma 9's aarch64
-//               libnode: the enterprise generation predates the aarch64 branch
-//               protection Fedora now applies. Its default Node is also 16, so the
-//               module stream has to be selected explicitly.
-//   Ubuntu    - 24.04 has no branch protection at all (0 paciasp, 0 bti c) and its
-//               Node is 18, below this project's floor.
-//   Arch      - enables CET but not `-mbranch-protection`.
-//   AL2023    - links Node statically with no shared libnode, so the private
-//               getter symbol is not exported and the probe cannot resolve it at
-//               all. That is a hard limit of the packaging, not a decoder gap.
+//   Fedora 44/rawhide - `%{build_cflags}` combine `-mbranch-protection=standard`
+//               with `-mno-omit-leaf-frame-pointer`, so PAC reaches leaf functions
+//               too (74839-119961 paciasp) and even this leaf accessor gets a frame
+//               record: a 28-byte, 7-instruction body. Still the only shape that
+//               needs the wide window.
+//   Debian 13 - branch protection on, but as pac-ret without +leaf and without
+//               forcing a leaf frame, so only non-leaf functions carry PAC (6241)
+//               and the getter stays `bti c; ldr; ret`, 12 bytes.
+//   Ubuntu 26.04 - same pattern as Debian (6682), Node 22.22.1.
+//   RHEL 9 rebuilds - Rocky and AlmaLinux carry PAC in their nodejs:20/22 module
+//               streams (6319), also pac-ret rather than +leaf. Their *default*
+//               nodejs is 16, below this project's floor, which is why the stream
+//               is selected explicitly.
+//   Amazon Linux 2023 - heavy PAC and BTI (55814 / 30149) but again pac-ret, so a
+//               12-byte getter. Its default `nodejs` is 18 and statically linked;
+//               the versioned nodejs20/nodejs22 packages use the shared layout.
+//   Arch      - CET only, no `-mbranch-protection`.
+//   Ubuntu 24.04 - no branch protection at all, and Node 18. Not in the matrix.
 //
-// So the distinguishing flag is `-mno-omit-leaf-frame-pointer`, not branch
-// protection on its own, and it is not simply "RHEL family inherits Fedora" —
-// RHEL 9 predates it. Fedora is currently the only shape needing the wide window.
+// Two conclusions worth keeping, because both contradict a plausible guess:
+// the distinguishing flag is `-mno-omit-leaf-frame-pointer` rather than branch
+// protection on its own, and static linking is not itself disqualifying — Rocky's
+// nodejs:20 and openSUSE's Node are statically linked yet still export the private
+// symbol, so the probe resolves it. What breaks is static linking *plus* hidden
+// private symbols, which is what Amazon Linux's default nodejs 18 does.
 //
-// Each entry pins a currently-maintained release rather than the newest or the
-// oldest. Entries are optional until a run confirms the distribution actually
-// packages a Node this project supports, so an unverified guess surfaces as a
-// warning instead of failing a PR.
+// Nothing here is optional: every entry has been confirmed by a run to package a
+// Node this project supports, so a failure is a real regression and must fail the
+// build.
 //
-// Fields are shell snippets evaluated inside the container, where $V is the
-// stream being tested. Distributions that ship exactly one Node use the stream
-// name `default` and ignore $V: version coverage comes from Fedora's parallel
-// streams, while these entries exist to cover each distribution's build flags,
-// which is what changes the getter shape. binutils rides along with the install
-// because the hardening census uses objdump; it is optional at runtime.
+// Fields are shell snippets evaluated inside the container. `$V` is the stream
+// being tested, and `$node_bin` is the resolved interpreter path, available to
+// `probe` because it runs after `binary` is expanded. Distributions that ship
+// exactly one Node use the stream name `default` and ignore $V: version coverage
+// comes from Fedora's parallel streams, while these entries exist to cover each
+// distribution's build flags, which is what changes the getter shape. binutils
+// rides along with the install because the hardening census uses objdump.
 //
 // The snippets run under `set -u`, so they must not contain `${...}` sequences
 // meant for another program — a dpkg-query format placeholder would be read as an
@@ -164,29 +169,26 @@ const DISTROS = [
   {
     id: 'fedora-44',
     image: 'registry.fedoraproject.org/fedora:44',
-    optional: false,
     streams: [20, 22, 24],
     install: 'dnf install -y --setopt=install_weak_deps=False nodejs$V binutils',
     binary: '/usr/bin/node-$V',
-    probe: 'rpm -q nodejs$V-libs',
+    probe: 'rpm -qf "$node_bin"',
   },
   {
     id: 'fedora-rawhide',
     image: 'registry.fedoraproject.org/fedora:rawhide',
     // Where Node 26 landed first (nodejs26-26.3.1-5.fc45). Rolling by
     // definition, so its churn warns rather than fails.
-    optional: true,
     streams: [22, 24, 26],
     install: 'dnf install -y --setopt=install_weak_deps=False nodejs$V binutils',
     binary: '/usr/bin/node-$V',
-    probe: 'rpm -q nodejs$V-libs',
+    probe: 'rpm -qf "$node_bin"',
   },
   {
     id: 'debian-13',
     image: 'docker.io/library/debian:trixie',
     // trixie ships Node 20.19.2, confirmed via sources.debian.org, and its
     // getter bytes were read out of the packaged libnode115.
-    optional: false,
     streams: ['default'],
     install:
       'DEBIAN_FRONTEND=noninteractive apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends nodejs binutils',
@@ -194,7 +196,7 @@ const DISTROS = [
     // No ${...} in this: these snippets are evaluated by a shell running with
     // `set -u`, so a dpkg-query format placeholder would be read as an unset
     // shell variable and abort.
-    probe: 'dpkg-query -W nodejs',
+    probe: 'dpkg -S "$node_bin"',
   },
   {
     id: 'rocky-9',
@@ -205,20 +207,18 @@ const DISTROS = [
     // branch protection Fedora now enables, so this covers an unhardened
     // enterprise rebuild rather than the Fedora shape. Verifying that the Fedora
     // shape reaches enterprise builds needs a RHEL 10 generation image.
-    optional: true,
     streams: [20, 22],
     install: 'dnf module install -y nodejs:$V && dnf install -y binutils',
     binary: '/usr/bin/node',
-    probe: 'rpm -q nodejs',
+    probe: 'rpm -qf "$node_bin"',
   },
   {
     id: 'almalinux-9',
     image: 'quay.io/almalinuxorg/almalinux:9',
-    optional: true,
     streams: [20, 22],
     install: 'dnf module install -y nodejs:$V && dnf install -y binutils',
     binary: '/usr/bin/node',
-    probe: 'rpm -q nodejs',
+    probe: 'rpm -qf "$node_bin"',
   },
   {
     id: 'amazonlinux-2023',
@@ -228,21 +228,19 @@ const DISTROS = [
     // cannot resolve it at all. The versioned packages are tried in case those
     // ship the shared layout; if they do not, this distribution simply cannot be
     // supported, which is why the entry stays optional.
-    optional: true,
     streams: [20, 22],
     install: 'dnf install -y nodejs$V binutils',
     binary: '/usr/bin/node',
-    probe: 'rpm -q nodejs$V',
+    probe: 'rpm -qf "$node_bin"',
   },
   {
     id: 'opensuse-leap-15',
     image: 'registry.opensuse.org/opensuse/leap:15.6',
     // Passing already; kept optional until a couple of runs confirm stability.
-    optional: true,
     streams: ['default'],
     install: 'zypper --non-interactive --gpg-auto-import-keys install nodejs binutils',
     binary: '/usr/bin/node',
-    probe: 'rpm -q nodejs',
+    probe: 'rpm -qf "$node_bin"',
   },
   {
     id: 'ubuntu-2604',
@@ -250,12 +248,11 @@ const DISTROS = [
     // 24.04 was measured and deliberately skipped: no branch protection and its
     // Node is 18. This entry only pays off if 26.04 ships Node 20 or newer,
     // hence optional.
-    optional: true,
     streams: ['default'],
     install:
       'DEBIAN_FRONTEND=noninteractive apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends nodejs binutils',
     binary: '/usr/bin/node',
-    probe: 'dpkg-query -W nodejs',
+    probe: 'dpkg -S "$node_bin"',
   },
 ];
 
@@ -300,7 +297,6 @@ function distroPlatformMatrix() {
         distro_install: distro.install,
         distro_binary: distro.binary,
         distro_probe: distro.probe,
-        distro_optional: distro.optional,
       });
     }
   }
