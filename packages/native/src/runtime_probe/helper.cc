@@ -1,5 +1,6 @@
 #include "helper.h"
 
+#include "getter_decoder.h"
 #include "platform.h"
 
 #include <cstring>
@@ -144,6 +145,32 @@ Result<napi_value> ReadAndValidateRequireBuiltinHandle(napi_env env,
   }
 
   return Result<napi_value>::Ok(candidate_from_getter);
+}
+
+Result<GetterPattern> DecodeGetterWithWideWindowRetry(
+    void* getter,
+    std::string_view platform_tag,
+    WindowedFieldGetterMatcher match) {
+  auto standard = match(getter, platform_tag, kGetterCodeWindowBytes);
+  if (standard.ok()) return standard;
+
+  if (!IsPlatformReadableRange(getter, kHardenedGetterCodeWindowBytes)) {
+    DebugTrace(
+        "wide-window retry skipped: %zu bytes at %s are not readable",
+        kHardenedGetterCodeWindowBytes,
+        Hex(reinterpret_cast<uintptr_t>(getter)).c_str());
+    return standard;
+  }
+
+  auto wide = match(getter, platform_tag, kHardenedGetterCodeWindowBytes);
+  if (wide.ok()) return wide;
+
+  std::string combined = standard.status().message();
+  combined += " (wide-window retry: ";
+  combined += wide.status().message();
+  combined += ')';
+  return Result<GetterPattern>::Failure(
+      Status::Failure(standard.status().code(), combined));
 }
 
 }  // namespace esplus::node::require_builtin

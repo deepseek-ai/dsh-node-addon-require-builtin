@@ -18,6 +18,8 @@ constexpr size_t kMaxReasonableRealmOffset = 0x4000;
 // read further. It fails closed if a body needs more than the window holds.
 constexpr size_t kX64CodeWindow = kGetterCodeWindowBytes;
 constexpr size_t kArm64WordWindow = kGetterCodeWindowBytes / sizeof(uint32_t);
+constexpr size_t kHardenedArm64WordWindow =
+    kHardenedGetterCodeWindowBytes / sizeof(uint32_t);
 
 bool IsPlausibleOffset(size_t offset) {
   return offset != 0 &&
@@ -227,6 +229,55 @@ Result<GetterPattern> BuildPattern(std::string_view platform_tag,
 
 constexpr uint32_t kArm64BtiC = 0xd503245fu;
 constexpr uint32_t kArm64Ret = 0xd65f03c0u;
+
+// Prologue/epilogue instructions emitted by hardened distribution builds
+// (`-mbranch-protection=...`, plus the frame record GCC pairs with it). The
+// operand-free opcodes are matched by their exact 32-bit encoding: an exact
+// comparison cannot admit a similar instruction operating on other registers.
+constexpr uint32_t kArm64Paciasp = 0xd503233fu;   // paciasp
+constexpr uint32_t kArm64Autiasp = 0xd50323bfu;   // autiasp
+constexpr uint32_t kArm64Pacibsp = 0xd503237fu;   // pacibsp (b-key variant)
+constexpr uint32_t kArm64Autibsp = 0xd50323ffu;   // autibsp (b-key variant)
+constexpr uint32_t kArm64Nop = 0xd503201fu;       // nop
+constexpr uint32_t kArm64MovX29Sp = 0x910003fdu;  // mov x29, sp
+
+// `retaa`/`retab` fuse the pointer-authentication check into the return. clang
+// emits these for `-mbranch-protection=pac-ret+leaf` where GCC emits a separate
+// `autiasp; ret`, so a decoder that only knows `ret` rejects clang-built
+// hardened binaries outright.
+constexpr uint32_t kArm64Retaa = 0xd65f0bffu;
+constexpr uint32_t kArm64Retab = 0xd65f0fffu;
+
+bool IsArm64Return(uint32_t insn) {
+  return insn == kArm64Ret || insn == kArm64Retaa || insn == kArm64Retab;
+}
+
+// `stp x29, x30, [sp, #imm]!` (pre-index) and `ldp x29, x30, [sp], #imm`
+// (post-index): the frame record a hardened prologue sets up and tears down.
+// The register operands are pinned (Rt=x29, Rt2=x30, Rn=sp) and only imm7 is
+// left free, so the frame size does not have to be predicted. It cannot affect
+// the result either way — the parsed offset comes solely from the `ldr`
+// immediate — and pinning a particular frame size is exactly what would make
+// this brittle across toolchains and optimization levels.
+//
+// Only the pre/post-index forms are accepted, which are self-contained. A plain
+// signed-offset `stp`/`ldp` would have to be paired with a `sub sp`/`add sp`
+// that is not in the accepted set anyway, so it still fails closed.
+bool IsArm64FrameRecordInsn(uint32_t insn) {
+  constexpr uint32_t kMask = 0xffc07fffu;  // opcode + Rt2(x30) + Rn(sp) + Rt(x29)
+  constexpr uint32_t kStpPreIndex = 0xa9807bfdu;
+  constexpr uint32_t kLdpPostIndex = 0xa8c07bfdu;
+  const uint32_t masked = insn & kMask;
+  return masked == kStpPreIndex || masked == kLdpPostIndex;
+}
+
+// True for instructions that only set up or tear down the hardened frame and
+// therefore cannot change which field the getter returns.
+bool IsArm64BenignFrameInsn(uint32_t insn) {
+  return insn == kArm64BtiC || insn == kArm64Paciasp || insn == kArm64Autiasp ||
+      insn == kArm64Pacibsp || insn == kArm64Autibsp || insn == kArm64Nop ||
+      insn == kArm64MovX29Sp || IsArm64FrameRecordInsn(insn);
+}
 
 // Matches `ldr x0, [x0, #imm]` (LDR immediate, unsigned offset, 64-bit) with
 // both the source and destination register being x0, and returns the byte
@@ -455,12 +506,19 @@ X86Body WalkX86Getter(const uint8_t* code, size_t size) {
 }  // namespace
 
 Result<GetterPattern> MatchX64SysVFieldGetter(void* getter,
-                                              std::string_view platform_tag) {
-  std::array<uint8_t, kX64CodeWindow> code{};
-  std::memcpy(code.data(), getter, code.size());
+                                              std::string_view platform_tag,
+                                              size_t window_bytes) {
+  if (window_bytes > kHardenedGetterCodeWindowBytes) {
+    window_bytes = kHardenedGetterCodeWindowBytes;
+  }
+  if (window_bytes == 0) {
+    return Failure("x64 sysv getter window is too small to decode");
+  }
+  std::array<uint8_t, kHardenedGetterCodeWindowBytes> code{};
+  std::memcpy(code.data(), getter, window_bytes);
 
   // System V returns the pointer in RAX and passes `this` in RDI.
-  const X64Body body = WalkX64Getter(code.data(), code.size(), kRegRdi);
+  const X64Body body = WalkX64Getter(code.data(), window_bytes, kRegRdi);
   if (!body.ok || !body.found_load || body.load_dest != kRegRax ||
       body.stores_to_sret) {
     return Failure("x64 sysv getter is not a recognized this->field accessor");
@@ -552,6 +610,82 @@ Result<GetterPattern> MatchArm64FieldGetter(void* getter,
   text += has_bti ? " bti-c-ldr-x0-[this-imm]-ret" : " ldr-x0-[this-imm]-ret";
   pattern.pattern = std::move(text);
   return Result<GetterPattern>::Ok(pattern);
+}
+
+// The AArch64 counterpart to WalkX64Getter: the frame-record and
+// pointer-authentication instructions hardened builds emit can sit on either
+// side of the field load, so the body is walked one instruction at a time rather
+// than matched at fixed positions. Only the exact encodings accepted by
+// IsArm64BenignFrameInsn are skipped and exactly one field load is permitted, so
+// a function that is not a plain field accessor still fails closed instead of
+// yielding an offset.
+Result<GetterPattern> MatchArm64AapcsFieldGetter(void* getter,
+                                                 std::string_view platform_tag,
+                                                 size_t window_bytes) {
+  if (window_bytes > kHardenedGetterCodeWindowBytes) {
+    window_bytes = kHardenedGetterCodeWindowBytes;
+  }
+  const size_t words = window_bytes / sizeof(uint32_t);
+  if (words == 0) return Failure("arm64 getter window is too small to decode");
+
+  std::array<uint32_t, kHardenedArm64WordWindow> code{};
+  std::memcpy(code.data(), getter, words * sizeof(code[0]));
+
+  bool found_load = false;
+  bool has_bti = false;
+  bool has_pac = false;
+  bool has_frame = false;
+  size_t offset = 0;
+
+  for (size_t index = 0; index < words; index++) {
+    const uint32_t insn = code[index];
+
+    if (IsArm64Return(insn)) {
+      if (!found_load) {
+        return Failure("arm64 getter returned without loading a field");
+      }
+      if (!IsPlausibleOffset(offset)) {
+        return Failure("arm64 parsed getter offset is implausible");
+      }
+      // A fused authenticating return proves pointer authentication is in use
+      // even when no separate paciasp appeared.
+      if (insn == kArm64Retaa || insn == kArm64Retab) has_pac = true;
+      // Composed so the shapes MatchArm64FieldGetter accepts render exactly the
+      // text that function produces; only hardened bodies add new components.
+      std::string shape;
+      if (has_bti) shape += "bti-c-";
+      if (has_pac) shape += "pac-";
+      if (has_frame) shape += "frame-";
+      shape += "ldr-x0-[this-imm]-ret";
+
+      GetterPattern pattern;
+      pattern.offset = offset;
+      std::string text(platform_tag);
+      text += ' ';
+      text += shape;
+      pattern.pattern = std::move(text);
+      return Result<GetterPattern>::Ok(pattern);
+    }
+
+    if (insn == kArm64BtiC) has_bti = true;
+    if (insn == kArm64Paciasp || insn == kArm64Pacibsp) has_pac = true;
+    if (IsArm64FrameRecordInsn(insn)) has_frame = true;
+    if (IsArm64BenignFrameInsn(insn)) continue;
+
+    size_t candidate = 0;
+    if (DecodeLdrX0FromX0(insn, &candidate)) {
+      if (found_load) {
+        return Failure("arm64 getter loads more than one field");
+      }
+      found_load = true;
+      offset = candidate;
+      continue;
+    }
+
+    return Failure("arm64 getter contains an unrecognized instruction");
+  }
+
+  return Failure("arm64 getter did not terminate with ret");
 }
 
 Result<GetterPattern> MatchArm64Win64FieldGetter(void* getter,
