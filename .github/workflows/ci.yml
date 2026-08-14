@@ -470,24 +470,25 @@ jobs:
           done
 
       # A distribution's Node is a different binary, not just a different version:
-      # a thin /usr/bin/node against a shared libnode.so, built with hardening
-      # flags the nodejs.org binaries do not use. On aarch64 Fedora combines
-      # `-mbranch-protection=standard` with `-mno-omit-leaf-frame-pointer`, which
-      # give even the private getter the runtime probe decodes both pointer
-      # authentication and a frame record; on x86-64 it adds CET `endbr64`. Both
-      # change the getter's machine-code shape, so the decoder is exercised against
-      # real packaged binaries rather than only nodejs.org builds.
+      # usually a thin /usr/bin/node against a shared libnode.so, built with
+      # hardening flags the nodejs.org binaries do not use. Measured so far: Fedora
+      # combines `-mbranch-protection=standard` with `-mno-omit-leaf-frame-pointer`,
+      # which gives even the private getter the probe decodes both pointer
+      # authentication and a frame record (28 bytes); Debian enables branch
+      # protection but without +leaf, so its getter stays `bti c; ldr; ret`
+      # (12 bytes). The shape follows each distribution's own flags, so the decoder
+      # is exercised against real packaged binaries.
       #
-      # Both families and all streams run in this one container. The streams are
-      # parallel installable and the families differ only in which prebuilt binary
-      # loads, so one image pull and one dnf transaction covers every combination.
+      # Install command, binary path and version query come from the matrix because
+      # package managers and layouts differ. One container per Node stream, since
+      # only Fedora installs streams in parallel; both families are tested inside
+      # it, and a failing combination does not stop the others so one run reports
+      # everything.
       #
-      # Image tags float within a release on purpose. A distribution rebuild that
-      # changes compiler flags is exactly the regression this job exists to catch,
-      # so the exact package versions are recorded in the log rather than pinned.
-      # Images come from Fedora's own registry because Docker Hub has been
-      # unreliable for them.
-      - name: Test prebuilds against ${{ matrix.distro }} Node ${{ matrix.distro_streams }}
+      # Image tags pin a maintained release but float within it on purpose: a
+      # rebuild that changes compiler flags is exactly the regression this job
+      # exists to catch, so exact package versions are logged rather than pinned.
+      - name: Test prebuilds against ${{ matrix.distro }}
         shell: bash
         run: |
           case "$RUNNER_ARCH" in
@@ -496,61 +497,63 @@ jobs:
             *) echo "unsupported Linux runner architecture: $RUNNER_ARCH" >&2; exit 1 ;;
           esac
 
-          docker run --rm \
-            --env NARB_BACKEND=napi \
-            --env NARB_EXPECTED_BACKEND=napi \
-            --env NARB_DISABLE_LOCAL_BUILD=1 \
-            --env NARB_TRACE \
-            --env "EXPECT_ARCH=$expect_arch" \
-            --env "STREAMS=${{ matrix.distro_streams }}" \
-            --env "FAMILIES=${{ matrix.families }}" \
-            --volume "$GITHUB_WORKSPACE:/workspace" \
-            --workdir /workspace \
-            "${{ matrix.distro_image }}" \
-            bash -ceu '
-              test "$(uname -m)" = "$EXPECT_ARCH"
+          status=0
+          for stream in ${{ matrix.distro_streams }}; do
+            echo "::group::${{ matrix.distro }} / node stream $stream"
+            docker run --rm \
+              --env NARB_BACKEND=napi \
+              --env NARB_EXPECTED_BACKEND=napi \
+              --env NARB_DISABLE_LOCAL_BUILD=1 \
+              --env NARB_TRACE \
+              --env "EXPECT_ARCH=$expect_arch" \
+              --env "V=$stream" \
+              --env "FAMILIES=${{ matrix.families }}" \
+              --env 'INSTALL=${{ matrix.distro_install }}' \
+              --env 'BINARY=${{ matrix.distro_binary }}' \
+              --env 'PROBE=${{ matrix.distro_probe }}' \
+              --volume "$GITHUB_WORKSPACE:/workspace" \
+              --workdir /workspace \
+              "${{ matrix.distro_image }}" \
+              bash -ceu '
+                test "$(uname -m)" = "$EXPECT_ARCH"
 
-              pkgs=""
-              for v in $STREAMS; do pkgs="$pkgs nodejs$v"; done
-              dnf install -y --setopt=install_weak_deps=False $pkgs >/dev/null
-              # binutils is only for the hardening census below, never required.
-              dnf install -y binutils >/dev/null 2>&1 || true
+                # These are templates from scripts/github-matrix.mjs, not external
+                # input; eval is what expands $V inside them.
+                eval "$INSTALL" >/dev/null
+                eval "$PROBE" || true
 
-              status=0
-              for v in $STREAMS; do
-                node_bin="/usr/bin/node-$v"
+                node_bin=$(eval echo "$BINARY")
+                "$node_bin" -v
 
                 # Record the branch-protection census of this libnode. Which
-                # distributions harden their builds is a measured property of their
-                # flags, so it is logged rather than assumed.
+                # distributions harden their builds is a measured property of
+                # their flags, so it is logged rather than assumed.
                 lib=$(ldd "$node_bin" | awk "/libnode\.so/ {print \$3; exit}")
-                census=""
+                echo "libnode: ${lib:-none (statically linked)}"
                 if [ -n "$lib" ] && command -v objdump >/dev/null 2>&1; then
                   objdump -d "$lib" > /tmp/dis.txt 2>/dev/null || true
-                  census=$(printf "paciasp=%s bti_c=%s endbr64=%s retaa=%s" \
+                  printf "hardening: paciasp=%s bti_c=%s endbr64=%s retaa=%s\n" \
                     "$(grep -c "\bpaciasp\b" /tmp/dis.txt || true)" \
                     "$(grep -c "\bbti\s*c\b" /tmp/dis.txt || true)" \
                     "$(grep -c "\bendbr64\b" /tmp/dis.txt || true)" \
-                    "$(grep -c "\breta[ab]\b" /tmp/dis.txt || true)")
+                    "$(grep -c "\breta[ab]\b" /tmp/dis.txt || true)"
                 fi
 
+                # NARB_TRACE is on, so a decode failure prints the probe trace and
+                # both decode stages reasons, and a binding-resolution failure
+                # prints every attempted path.
+                rc=0
                 for family in $FAMILIES; do
-                  echo "::group::$family on $(rpm -q nodejs$v-libs)"
-                  echo "node: $("$node_bin" -v)  libnode: ${lib:-none (static)}"
-                  [ -n "$census" ] && echo "hardening: $census"
-
-                  # NARB_TRACE is on, so a decode failure prints the probe trace
-                  # and both decode stages reasons, and a binding-resolution
-                  # failure prints every attempted path.
+                  echo "--- $family ---"
                   export NARB_PRODUCT="$family"
-                  if ! "$node_bin" ./test/backend.test.js; then status=1; fi
-                  if ! "$node_bin" --expose-internals ./test/require-parity.test.js; then status=1; fi
-
-                  echo "::endgroup::"
+                  "$node_bin" ./test/backend.test.js || rc=1
+                  "$node_bin" --expose-internals ./test/require-parity.test.js || rc=1
                 done
-              done
-              exit $status
-            '
+                exit $rc
+              ' || status=1
+            echo "::endgroup::"
+          done
+          exit $status
 
   hmr-comparison:
     name: 'HMR Test: ${{ matrix.family }} / ${{ matrix.platform }}'

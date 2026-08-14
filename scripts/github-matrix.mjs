@@ -121,47 +121,120 @@ function hmrPlatformMatrix() {
 // machine-code shape of the private getter the runtime probe decodes, so it needs
 // coverage against the real packaged binary.
 //
-// Measured, not assumed:
-//   Fedora       - `rpm --eval %{build_cflags}` on aarch64 yields
-//                  `-mbranch-protection=standard -mno-omit-leaf-frame-pointer`
-//                  (plus stack protector/clash flags). That combination gives even
-//                  this leaf accessor pointer authentication and a frame record: a
-//                  7-instruction, 28-byte body. It is the shape that motivated the
-//                  two-stage decode, and the only distribution shape known to need
-//                  the wider window.
-//   Ubuntu 24.04 - no branch protection at all (0 paciasp, 0 `bti c` across 76569
-//                  functions in the packaged aarch64 libnode), and its Node is 18,
-//                  below this project's floor. Not in the matrix.
+// What the measurements so far show, and why the table looks like this:
 //
-// Each job prints the branch-protection census of the libnode it installed, so
-// this table stays evidence-based: adding a distribution here is how we learn what
-// its build flags do, rather than assuming.
+//   Fedora  - `%{build_cflags}` on aarch64 combine `-mbranch-protection=standard`
+//             with `-mno-omit-leaf-frame-pointer`. Together those give even this
+//             leaf accessor pointer authentication and a frame record: a 28-byte,
+//             7-instruction body, the only shape known to need the wide window.
+//   Debian  - also enables branch protection (6241 paciasp in trixie's aarch64
+//             libnode) but with pac-ret rather than +leaf, and without forcing a
+//             leaf frame. The getter comes out `bti c; ldr; ret`, 12 bytes.
+//   Ubuntu  - 24.04 has no branch protection at all (0 paciasp, 0 bti c) and its
+//             Node is 18, below this project's floor.
+//   Arch    - enables CET but not `-mbranch-protection`.
 //
-// Node stream coverage needs two Fedora releases, since neither carries all four:
-//   Fedora 44 -> nodejs20, nodejs22, nodejs24
-//   rawhide   -> nodejs22, nodejs24, nodejs26 (26.3.1-5.fc45)
-// Using both also gets the GCC version difference between them for free.
+// So the distinguishing flag is `-mno-omit-leaf-frame-pointer`, not branch
+// protection on its own. Since Fedora's flags come from redhat-rpm-config, the
+// whole RHEL family plausibly shares that shape, which is why an enterprise
+// rebuild is worth covering rather than assuming Fedora is unique.
 //
-// Every entry is currently Fedora, so ci.yml issues dnf commands directly. Adding
-// a distribution with a different package manager means moving those commands
-// into this table. Measured elsewhere and deliberately absent: Ubuntu 24.04
-// applies no branch protection at all and its Node is 18, below this project's
-// floor; Arch enables CET but not `-mbranch-protection`.
+// Each entry pins a currently-maintained release rather than the newest or the
+// oldest. Entries are optional until a run confirms the distribution actually
+// packages a Node this project supports, so an unverified guess surfaces as a
+// warning instead of failing a PR.
+//
+// Fields are shell snippets evaluated inside the container, where $V is the
+// stream being tested. Distributions that ship exactly one Node use the stream
+// name `default` and ignore $V: version coverage comes from Fedora's parallel
+// streams, while these entries exist to cover each distribution's build flags,
+// which is what changes the getter shape. binutils rides along with the install
+// because the hardening census uses objdump; it is optional at runtime.
 const DISTROS = [
   {
     id: 'fedora-44',
     image: 'registry.fedoraproject.org/fedora:44',
-    streams: [20, 22, 24],
     optional: false,
+    streams: [20, 22, 24],
+    install: 'dnf install -y --setopt=install_weak_deps=False nodejs$V binutils',
+    binary: '/usr/bin/node-$V',
+    probe: 'rpm -q nodejs$V-libs',
   },
   {
     id: 'fedora-rawhide',
     image: 'registry.fedoraproject.org/fedora:rawhide',
-    // rawhide is where Node 26 landed first. It is a moving target by definition,
-    // so it is optional: rawhide churn should surface as a warning rather than
-    // fail a PR on something unrelated to this project.
-    streams: [22, 24, 26],
+    // Where Node 26 landed first (nodejs26-26.3.1-5.fc45). Rolling by
+    // definition, so its churn warns rather than fails.
     optional: true,
+    streams: [22, 24, 26],
+    install: 'dnf install -y --setopt=install_weak_deps=False nodejs$V binutils',
+    binary: '/usr/bin/node-$V',
+    probe: 'rpm -q nodejs$V-libs',
+  },
+  {
+    id: 'debian-13',
+    image: 'docker.io/library/debian:trixie',
+    // trixie ships Node 20.19.2, confirmed via sources.debian.org, and its
+    // getter bytes were read out of the packaged libnode115.
+    optional: false,
+    streams: ['default'],
+    install:
+      'apt-get update -qq && apt-get install -y -qq --no-install-recommends nodejs binutils',
+    binary: '/usr/bin/node',
+    probe: 'dpkg-query -W -f="${Package} ${Version}\\n" nodejs',
+  },
+  {
+    id: 'rocky-9',
+    image: 'quay.io/rockylinux/rockylinux:9',
+    // RHEL rebuild, so it inherits redhat-rpm-config's flags. The highest-value
+    // unverified entry: it decides whether the Fedora shape covers the whole
+    // enterprise family. Node arrives as an AppStream module, not parallel
+    // streams, so the default is installed and reported.
+    optional: true,
+    streams: ['default'],
+    install: 'dnf install -y nodejs binutils',
+    binary: '/usr/bin/node',
+    probe: 'rpm -q nodejs',
+  },
+  {
+    id: 'almalinux-9',
+    image: 'quay.io/almalinuxorg/almalinux:9',
+    optional: true,
+    streams: ['default'],
+    install: 'dnf install -y nodejs binutils',
+    binary: '/usr/bin/node',
+    probe: 'rpm -q nodejs',
+  },
+  {
+    id: 'amazonlinux-2023',
+    image: 'public.ecr.aws/amazonlinux/amazonlinux:2023',
+    optional: true,
+    streams: ['default'],
+    install: 'dnf install -y nodejs binutils',
+    binary: '/usr/bin/node',
+    probe: 'rpm -q nodejs',
+  },
+  {
+    id: 'opensuse-leap-15',
+    image: 'registry.opensuse.org/opensuse/leap:15.6',
+    optional: true,
+    streams: ['default'],
+    install: 'zypper --non-interactive --gpg-auto-import-keys install nodejs binutils',
+    binary: '/usr/bin/node',
+    probe: 'rpm -q nodejs',
+  },
+  {
+    id: 'ubuntu-2604',
+    image: 'public.ecr.aws/ubuntu/ubuntu:26.04',
+    // 24.04 was measured and deliberately skipped: no branch protection and its
+    // Node is 18. This entry only pays off if 26.04 ships Node 20 or newer,
+    // hence optional.
+    optional: true,
+    streams: ['default'],
+    install:
+      'apt-get update -qq && apt-get install -y -qq --no-install-recommends nodejs binutils',
+    binary: '/usr/bin/node',
+    probe: 'dpkg-query -W -f="${Package} ${Version}\\n" nodejs',
   },
 ];
 
@@ -203,6 +276,9 @@ function distroPlatformMatrix() {
         distro: distro.id,
         distro_image: distro.image,
         distro_streams: distro.streams.join(' '),
+        distro_install: distro.install,
+        distro_binary: distro.binary,
+        distro_probe: distro.probe,
         distro_optional: distro.optional,
       });
     }
