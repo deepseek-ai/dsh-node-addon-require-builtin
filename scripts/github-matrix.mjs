@@ -97,30 +97,32 @@ function hmrPlatformMatrix() {
 //
 // Node stream coverage needs two Fedora releases, since neither carries all four:
 //   Fedora 44 -> nodejs20, nodejs22, nodejs24
-//   rawhide   -> nodejs22, nodejs24, nodejs26
+//   rawhide   -> nodejs22, nodejs24, nodejs26 (26.3.1-5.fc45)
 // Using both also gets the GCC version difference between them for free.
+//
+// One job per (family, platform, distribution) walks every stream inside a single
+// container rather than fanning out a job per stream: the streams are parallel
+// installable, so this is one image pull and one dnf transaction instead of a
+// job's worth of setup each.
+//
+// Every entry is currently Fedora, so ci.yml issues dnf commands directly. Adding
+// a distribution with a different package manager means moving those commands
+// into this table.
 const DISTROS = [
   {
     id: 'fedora-44',
     image: 'registry.fedoraproject.org/fedora:44',
-    // Fedora installs parallel streams as nodejs<N> providing /usr/bin/node-<N>.
-    install: 'dnf install -y --setopt=install_weak_deps=False nodejs%V%',
-    binary: '/usr/bin/node-%V%',
-    version_query: 'rpm -q nodejs%V%-libs',
     streams: [20, 22, 24],
-    optional_streams: [],
+    optional: false,
   },
   {
     id: 'fedora-rawhide',
     image: 'registry.fedoraproject.org/fedora:rawhide',
-    install: 'dnf install -y --setopt=install_weak_deps=False nodejs%V%',
-    binary: '/usr/bin/node-%V%',
-    version_query: 'rpm -q nodejs%V%-libs',
-    // rawhide is where Node 26 landed first (nodejs26-26.3.1-5.fc45). It is a
-    // moving target by definition, so its streams are optional: a rawhide break
-    // should surface here as a warning rather than fail a PR on unrelated churn.
-    streams: [],
-    optional_streams: [22, 24, 26],
+    // rawhide is where Node 26 landed first. It is a moving target by definition,
+    // so it is optional: rawhide churn should surface as a warning rather than
+    // fail a PR on something unrelated to this project.
+    streams: [22, 24, 26],
+    optional: true,
   },
 ];
 
@@ -134,22 +136,14 @@ function distroPlatformMatrix() {
       if (!platform.startsWith('linux-')) continue;
       const entry = platformEntry(family, dir);
       for (const distro of DISTROS) {
-        const streams = [
-          ...distro.streams.map((v) => ({ v, optional: false })),
-          ...(distro.optional_streams || []).map((v) => ({ v, optional: true })),
-        ];
-        for (const { v, optional } of streams) {
-          include.push({
-            ...entry,
-            distro: distro.id,
-            distro_image: distro.image,
-            distro_node: v,
-            distro_install: distro.install.replaceAll('%V%', String(v)),
-            distro_binary: distro.binary.replaceAll('%V%', String(v)),
-            distro_version_query: distro.version_query.replaceAll('%V%', String(v)),
-            distro_optional: optional,
-          });
-        }
+        include.push({
+          ...entry,
+          distro: distro.id,
+          distro_image: distro.image,
+          // Space separated so the job can iterate it in shell.
+          distro_streams: distro.streams.join(' '),
+          distro_optional: distro.optional,
+        });
       }
     }
   }
