@@ -1,6 +1,6 @@
 {
   "name": "node-addon-require-builtin-win32-ia32-msvc",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Prebuilt win32-ia32-msvc native addon package for node-addon-require-builtin.",
   "main": "./index.js",
   "publishConfig": {

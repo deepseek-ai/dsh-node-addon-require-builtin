@@ -1,6 +1,6 @@
 {
   "name": "node-addon-require-builtin-linux-arm64-gnu",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Prebuilt linux-arm64-gnu native addon package for node-addon-require-builtin.",
   "main": "./index.js",
   "publishConfig": {
