@@ -63,6 +63,48 @@ function platformMatrix() {
   return { include };
 }
 
+// CI builds and tests every family on one runner per platform, rather than one
+// runner per (family, platform). The per-job setup — checkout, toolchain, pnpm
+// install, TypeScript build — is identical across families and is the bulk of a
+// job's fixed cost, so paying it once per platform instead of once per family
+// halves it. The prebuilt binaries themselves are per family and still built,
+// verified and uploaded separately.
+//
+// Release deliberately keeps the unaggregated matrix: publishing wants each
+// platform package's artifact produced by its own job.
+function ciPlatformMatrix() {
+  const platforms = new Map();
+  for (const family of FAMILIES) {
+    for (const dir of platformDirsFor(family)) {
+      const platform = path.basename(dir);
+      const entry = platformEntry(family, dir);
+      if (!platforms.has(platform)) {
+        platforms.set(platform, {
+          platform,
+          runner: entry.runner,
+          build_node: entry.build_node,
+          // Every family emits the same binary name for a given platform, since
+          // it encodes only platform and ABI.
+          filename: entry.filename,
+          families: FAMILIES.join(' '),
+          // Artifact names must stay per family because downstream jobs (hmr,
+          // distro-node) resolve them by name. upload-artifact takes one name per
+          // step, so ci.yml has one upload step per entry here; adding a family
+          // means adding a step.
+          uploads: [],
+          ...(entry.nodearch ? { nodearch: entry.nodearch } : {}),
+        });
+      }
+      platforms.get(platform).uploads.push({
+        family,
+        artifact: entry.artifact,
+        path: `${entry.prebuilt_path}/${entry.filename}`,
+      });
+    }
+  }
+  return { include: [...platforms.values()] };
+}
+
 function hmrPlatformMatrix() {
   // The HMR harness exercises ESM loader cache invalidation, so it intentionally
   // runs against the whitelisted internal-loader product only.
@@ -170,7 +212,7 @@ function distroPlatformMatrix() {
 
 const target = process.argv[2];
 const matrices = {
-  'ci-platforms': platformMatrix,
+  'ci-platforms': ciPlatformMatrix,
   'ci-hmr-platforms': hmrPlatformMatrix,
   'ci-distro-platforms': distroPlatformMatrix,
   'release-platforms': platformMatrix,

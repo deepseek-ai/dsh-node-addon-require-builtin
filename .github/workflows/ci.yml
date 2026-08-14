@@ -27,7 +27,7 @@ jobs:
           echo "distro_platforms=$(node ./scripts/github-matrix.mjs ci-distro-platforms)" >> "$GITHUB_OUTPUT"
 
   supported:
-    name: 'NAPI Build: ${{ matrix.family }} / ${{ matrix.platform }}'
+    name: 'NAPI Build: ${{ matrix.platform }}'
     needs: matrix
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -38,8 +38,10 @@ jobs:
       # carries the full runtime-probe trace. Release must stay quiet, so its
       # workflow does not set this.
       NARB_TRACE: 1
-      # Each matrix entry builds and tests exactly one product family.
-      NARB_PRODUCT: ${{ matrix.family }}
+      # Every product family is built and tested on this one runner, so steps
+      # iterate this list instead of the job being fanned out per family. Each
+      # step sets NARB_PRODUCT per iteration.
+      FAMILIES: ${{ matrix.families }}
     steps:
       - uses: actions/checkout@v4
 
@@ -79,7 +81,13 @@ jobs:
 
       - name: Build N-API prebuild
         if: runner.os != 'Linux'
-        run: pnpm build:prebuild:napi
+        shell: bash
+        run: |
+          for family in $FAMILIES; do
+            echo "::group::build $family"
+            NARB_PRODUCT="$family" pnpm build:prebuild:napi
+            echo "::endgroup::"
+          done
         env:
           npm_config_msvs_version: ${{ runner.os == 'Windows' && '2022' || '' }}
 
@@ -99,7 +107,7 @@ jobs:
             --env HOME=/tmp \
             --env NARB_BACKEND=napi \
             --env NARB_BUILD_OUTPUT=prebuild \
-            --env NARB_PRODUCT \
+            --env FAMILIES \
             --volume "$node_root:/opt/node:ro" \
             --volume "$GITHUB_WORKSPACE:/workspace" \
             --workdir /workspace \
@@ -113,60 +121,67 @@ jobs:
               chmod +x /tmp/narb-cxx
               export CXX=/tmp/narb-cxx
 
-              node --import tsx ./scripts/build.ts
-              env -u LD_LIBRARY_PATH \
-                NARB_EXPECTED_BACKEND=napi NARB_DISABLE_LOCAL_BUILD=1 \
-                node ./test/backend.test.js
-              env -u LD_LIBRARY_PATH NARB_DISABLE_LOCAL_BUILD=1 \
-                node --expose-internals ./test/require-parity.test.js
+              for family in $FAMILIES; do
+                echo "::group::build and test $family on glibc 2.28"
+                export NARB_PRODUCT="$family"
+                node --import tsx ./scripts/build.ts
+                env -u LD_LIBRARY_PATH \
+                  NARB_EXPECTED_BACKEND=napi NARB_DISABLE_LOCAL_BUILD=1 \
+                  node ./test/backend.test.js
+                env -u LD_LIBRARY_PATH NARB_DISABLE_LOCAL_BUILD=1 \
+                  node --expose-internals ./test/require-parity.test.js
+                echo "::endgroup::"
+              done
             '
 
       - name: Verify Linux prebuild compatibility
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          file='${{ matrix.prebuilt_path }}/${{ matrix.filename }}'
-          max_glibc="$({
-            readelf --version-info "$file" \
-              | sed -n 's/.*Name: GLIBC_\([0-9][0-9.]*\).*/\1/p'
-          } | sort -Vu | tail -n 1)"
-          if [ -z "$max_glibc" ]; then
-            echo "no GLIBC version requirements found in $file" >&2
-            exit 1
-          fi
-          if [ "$(printf '%s\n' 2.28 "$max_glibc" | sort -V | tail -n 1)" != 2.28 ]; then
-            echo "glibc floor regressed: GLIBC_$max_glibc is newer than GLIBC_2.28" >&2
-            exit 1
-          fi
+          for family in $FAMILIES; do
+            file="packages/$family/${{ matrix.platform }}/prebuilt/${{ matrix.filename }}"
+            echo "checking $file"
+            max_glibc="$({
+              readelf --version-info "$file" \
+                | sed -n 's/.*Name: GLIBC_\([0-9][0-9.]*\).*/\1/p'
+            } | sort -Vu | tail -n 1)"
+            if [ -z "$max_glibc" ]; then
+              echo "no GLIBC version requirements found in $file" >&2
+              exit 1
+            fi
+            if [ "$(printf '%s\n' 2.28 "$max_glibc" | sort -V | tail -n 1)" != 2.28 ]; then
+              echo "glibc floor regressed: GLIBC_$max_glibc is newer than GLIBC_2.28" >&2
+              exit 1
+            fi
 
-          max_glibcxx="$({
-            readelf --version-info "$file" \
-              | sed -n 's/.*Name: GLIBCXX_\([0-9][0-9.]*\).*/\1/p'
-          } | sort -Vu | tail -n 1)"
-          if [ -z "$max_glibcxx" ]; then
-            echo "no GLIBCXX version requirements found in $file" >&2
-            exit 1
-          fi
-          if [ "$(printf '%s\n' 3.4.25 "$max_glibcxx" | sort -V | tail -n 1)" != 3.4.25 ]; then
-            echo "libstdc++ floor regressed: GLIBCXX_$max_glibcxx is newer than GLIBCXX_3.4.25" >&2
-            exit 1
-          fi
+            max_glibcxx="$({
+              readelf --version-info "$file" \
+                | sed -n 's/.*Name: GLIBCXX_\([0-9][0-9.]*\).*/\1/p'
+            } | sort -Vu | tail -n 1)"
+            if [ -z "$max_glibcxx" ]; then
+              echo "no GLIBCXX version requirements found in $file" >&2
+              exit 1
+            fi
+            if [ "$(printf '%s\n' 3.4.25 "$max_glibcxx" | sort -V | tail -n 1)" != 3.4.25 ]; then
+              echo "libstdc++ floor regressed: GLIBCXX_$max_glibcxx is newer than GLIBCXX_3.4.25" >&2
+              exit 1
+            fi
 
-          dynamic="$(readelf --dynamic "$file")"
-          grep -q 'Shared library: \[libdl.so.2\]' <<<"$dynamic" || {
-            echo "Linux prebuild does not declare its libdl.so.2 dependency" >&2
-            exit 1
-          }
-          if ! grep -q 'Shared library: \[libstdc++\.so\.6\]' <<<"$dynamic"; then
-            echo "Linux prebuild does not declare its shared libstdc++ runtime" >&2
-            exit 1
-          fi
+            dynamic="$(readelf --dynamic "$file")"
+            grep -q 'Shared library: \[libdl.so.2\]' <<<"$dynamic" || {
+              echo "Linux prebuild does not declare its libdl.so.2 dependency" >&2
+              exit 1
+            }
+            if ! grep -q 'Shared library: \[libstdc++\.so\.6\]' <<<"$dynamic"; then
+              echo "Linux prebuild does not declare its shared libstdc++ runtime" >&2
+              exit 1
+            fi
+          done
 
       - name: Verify Windows prebuild compatibility
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $file = '${{ matrix.prebuilt_path }}/${{ matrix.filename }}'
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           $installation = & $vswhere -latest -products * -property installationPath
           if (-not $installation) {
@@ -178,15 +193,19 @@ jobs:
             throw 'dumpbin.exe not found'
           }
 
-          $dependencies = & $dumpbin.FullName /DEPENDENTS $file | Out-String
-          Write-Host $dependencies
-          $forbidden = [regex]::Matches(
-            $dependencies,
-            '(?im)^\s*((?:vcruntime|msvcp|ucrtbase|api-ms-win-crt)[^\s]*\.dll)\s*$'
-          )
-          if ($forbidden.Count -ne 0) {
-            $names = $forbidden | ForEach-Object { $_.Groups[1].Value }
-            throw "Windows prebuild has dynamic C/C++ runtime dependencies: $($names -join ', ')"
+          foreach ($family in $env:FAMILIES.Split(' ')) {
+            $file = "packages/$family/${{ matrix.platform }}/prebuilt/${{ matrix.filename }}"
+            Write-Host "checking $file"
+            $dependencies = & $dumpbin.FullName /DEPENDENTS $file | Out-String
+            Write-Host $dependencies
+            $forbidden = [regex]::Matches(
+              $dependencies,
+              '(?im)^\s*((?:vcruntime|msvcp|ucrtbase|api-ms-win-crt)[^\s]*\.dll)\s*$'
+            )
+            if ($forbidden.Count -ne 0) {
+              $names = $forbidden | ForEach-Object { $_.Groups[1].Value }
+              throw "Windows prebuild has dynamic C/C++ runtime dependencies: $($names -join ', ')"
+            }
           }
 
       - name: Test N-API prebuild on Node 20
@@ -196,9 +215,14 @@ jobs:
           architecture: ${{ matrix.nodearch }}
 
       - name: Test N-API prebuild on Node 20
+        shell: bash
         run: |
-          node ./test/backend.test.js
-          node --expose-internals ./test/require-parity.test.js
+          for family in $FAMILIES; do
+            echo "::group::$family"
+            NARB_PRODUCT="$family" node ./test/backend.test.js
+            NARB_PRODUCT="$family" node --expose-internals ./test/require-parity.test.js
+            echo "::endgroup::"
+          done
         env:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
@@ -211,9 +235,14 @@ jobs:
           architecture: ${{ matrix.nodearch }}
 
       - name: Test N-API prebuild on Node 21
+        shell: bash
         run: |
-          node ./test/backend.test.js
-          node --expose-internals ./test/require-parity.test.js
+          for family in $FAMILIES; do
+            echo "::group::$family"
+            NARB_PRODUCT="$family" node ./test/backend.test.js
+            NARB_PRODUCT="$family" node --expose-internals ./test/require-parity.test.js
+            echo "::endgroup::"
+          done
         env:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
@@ -226,9 +255,14 @@ jobs:
           architecture: ${{ matrix.nodearch }}
 
       - name: Test N-API prebuild on Node 22
+        shell: bash
         run: |
-          node ./test/backend.test.js
-          node --expose-internals ./test/require-parity.test.js
+          for family in $FAMILIES; do
+            echo "::group::$family"
+            NARB_PRODUCT="$family" node ./test/backend.test.js
+            NARB_PRODUCT="$family" node --expose-internals ./test/require-parity.test.js
+            echo "::endgroup::"
+          done
         env:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
@@ -243,9 +277,14 @@ jobs:
 
       - name: Test N-API prebuild on Node 23
         if: matrix.platform != 'win32-ia32-msvc'
+        shell: bash
         run: |
-          node ./test/backend.test.js
-          node --expose-internals ./test/require-parity.test.js
+          for family in $FAMILIES; do
+            echo "::group::$family"
+            NARB_PRODUCT="$family" node ./test/backend.test.js
+            NARB_PRODUCT="$family" node --expose-internals ./test/require-parity.test.js
+            echo "::endgroup::"
+          done
         env:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
@@ -260,9 +299,14 @@ jobs:
 
       - name: Test N-API prebuild on Node 24
         if: matrix.platform != 'win32-ia32-msvc'
+        shell: bash
         run: |
-          node ./test/backend.test.js
-          node --expose-internals ./test/require-parity.test.js
+          for family in $FAMILIES; do
+            echo "::group::$family"
+            NARB_PRODUCT="$family" node ./test/backend.test.js
+            NARB_PRODUCT="$family" node --expose-internals ./test/require-parity.test.js
+            echo "::endgroup::"
+          done
         env:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
@@ -277,9 +321,14 @@ jobs:
 
       - name: Test N-API prebuild on Node 25
         if: matrix.platform != 'win32-ia32-msvc'
+        shell: bash
         run: |
-          node ./test/backend.test.js
-          node --expose-internals ./test/require-parity.test.js
+          for family in $FAMILIES; do
+            echo "::group::$family"
+            NARB_PRODUCT="$family" node ./test/backend.test.js
+            NARB_PRODUCT="$family" node --expose-internals ./test/require-parity.test.js
+            echo "::endgroup::"
+          done
         env:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
@@ -294,9 +343,14 @@ jobs:
 
       - name: Test N-API prebuild on Node 26
         if: matrix.platform != 'win32-ia32-msvc'
+        shell: bash
         run: |
-          node ./test/backend.test.js
-          node --expose-internals ./test/require-parity.test.js
+          for family in $FAMILIES; do
+            echo "::group::$family"
+            NARB_PRODUCT="$family" node ./test/backend.test.js
+            NARB_PRODUCT="$family" node --expose-internals ./test/require-parity.test.js
+            echo "::endgroup::"
+          done
         env:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
@@ -311,9 +365,14 @@ jobs:
 
       - name: Test N-API prebuild on Node 27 nightly
         if: matrix.platform != 'win32-ia32-msvc'
+        shell: bash
         run: |
-          node ./test/backend.test.js
-          node --expose-internals ./test/require-parity.test.js
+          for family in $FAMILIES; do
+            echo "::group::$family"
+            NARB_PRODUCT="$family" node ./test/backend.test.js
+            NARB_PRODUCT="$family" node --expose-internals ./test/require-parity.test.js
+            echo "::endgroup::"
+          done
         env:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
@@ -333,13 +392,30 @@ jobs:
         run: pnpm -s headers -- --github-env
 
       - name: Test nodeabi source build
-        run: pnpm test:nodeabi
+        shell: bash
+        run: |
+          for family in $FAMILIES; do
+            echo "::group::$family nodeabi"
+            NARB_PRODUCT="$family" pnpm test:nodeabi
+            echo "::endgroup::"
+          done
 
-      - name: Upload N-API prebuild
+      # One step per family: upload-artifact takes a single name, and downstream
+      # jobs resolve these artifacts by name. Indices match the matrix uploads
+      # list, so adding a family means adding a step here.
+      - name: Upload N-API prebuild (${{ matrix.uploads[0].family }})
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.prebuilt_path }}/${{ matrix.filename }}
+          name: ${{ matrix.uploads[0].artifact }}
+          path: ${{ matrix.uploads[0].path }}
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload N-API prebuild (${{ matrix.uploads[1].family }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.uploads[1].artifact }}
+          path: ${{ matrix.uploads[1].path }}
           if-no-files-found: error
           retention-days: 7
 
