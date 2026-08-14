@@ -16,6 +16,7 @@ jobs:
     outputs:
       platforms: ${{ steps.matrix.outputs.platforms }}
       hmr_platforms: ${{ steps.matrix.outputs.hmr_platforms }}
+      distro_platforms: ${{ steps.matrix.outputs.distro_platforms }}
     steps:
       - uses: actions/checkout@v4
 
@@ -23,9 +24,10 @@ jobs:
         run: |
           echo "platforms=$(node ./scripts/github-matrix.mjs ci-platforms)" >> "$GITHUB_OUTPUT"
           echo "hmr_platforms=$(node ./scripts/github-matrix.mjs ci-hmr-platforms)" >> "$GITHUB_OUTPUT"
+          echo "distro_platforms=$(node ./scripts/github-matrix.mjs ci-distro-platforms)" >> "$GITHUB_OUTPUT"
 
   supported:
-    name: 'NAPI Build: ${{ matrix.family }} / ${{ matrix.platform }}'
+    name: 'NAPI Build: ${{ matrix.platform }}'
     needs: matrix
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -36,8 +38,10 @@ jobs:
       # carries the full runtime-probe trace. Release must stay quiet, so its
       # workflow does not set this.
       NARB_TRACE: 1
-      # Each matrix entry builds and tests exactly one product family.
-      NARB_PRODUCT: ${{ matrix.family }}
+      # Every product family is built and tested on this one runner, so steps
+      # iterate this list instead of the job being fanned out per family. Each
+      # step sets NARB_PRODUCT per iteration.
+      FAMILIES: ${{ matrix.families }}
     steps:
       - uses: actions/checkout@v4
 
@@ -77,7 +81,13 @@ jobs:
 
       - name: Build N-API prebuild
         if: runner.os != 'Linux'
-        run: pnpm build:prebuild:napi
+        shell: bash
+        run: |
+          for family in $FAMILIES; do
+            echo "::group::build $family"
+            NARB_PRODUCT="$family" pnpm build:prebuild:napi
+            echo "::endgroup::"
+          done
         env:
           npm_config_msvs_version: ${{ runner.os == 'Windows' && '2022' || '' }}
 
@@ -97,7 +107,7 @@ jobs:
             --env HOME=/tmp \
             --env NARB_BACKEND=napi \
             --env NARB_BUILD_OUTPUT=prebuild \
-            --env NARB_PRODUCT \
+            --env FAMILIES \
             --volume "$node_root:/opt/node:ro" \
             --volume "$GITHUB_WORKSPACE:/workspace" \
             --workdir /workspace \
@@ -111,60 +121,67 @@ jobs:
               chmod +x /tmp/narb-cxx
               export CXX=/tmp/narb-cxx
 
-              node --import tsx ./scripts/build.ts
-              env -u LD_LIBRARY_PATH \
-                NARB_EXPECTED_BACKEND=napi NARB_DISABLE_LOCAL_BUILD=1 \
-                node ./test/backend.test.js
-              env -u LD_LIBRARY_PATH NARB_DISABLE_LOCAL_BUILD=1 \
-                node --expose-internals ./test/require-parity.test.js
+              for family in $FAMILIES; do
+                echo "::group::build and test $family on glibc 2.28"
+                export NARB_PRODUCT="$family"
+                node --import tsx ./scripts/build.ts
+                env -u LD_LIBRARY_PATH \
+                  NARB_EXPECTED_BACKEND=napi NARB_DISABLE_LOCAL_BUILD=1 \
+                  node ./test/backend.test.js
+                env -u LD_LIBRARY_PATH NARB_DISABLE_LOCAL_BUILD=1 \
+                  node --expose-internals ./test/require-parity.test.js
+                echo "::endgroup::"
+              done
             '
 
       - name: Verify Linux prebuild compatibility
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          file='${{ matrix.prebuilt_path }}/${{ matrix.filename }}'
-          max_glibc="$({
-            readelf --version-info "$file" \
-              | sed -n 's/.*Name: GLIBC_\([0-9][0-9.]*\).*/\1/p'
-          } | sort -Vu | tail -n 1)"
-          if [ -z "$max_glibc" ]; then
-            echo "no GLIBC version requirements found in $file" >&2
-            exit 1
-          fi
-          if [ "$(printf '%s\n' 2.28 "$max_glibc" | sort -V | tail -n 1)" != 2.28 ]; then
-            echo "glibc floor regressed: GLIBC_$max_glibc is newer than GLIBC_2.28" >&2
-            exit 1
-          fi
+          for family in $FAMILIES; do
+            file="packages/$family/${{ matrix.platform }}/prebuilt/${{ matrix.filename }}"
+            echo "checking $file"
+            max_glibc="$({
+              readelf --version-info "$file" \
+                | sed -n 's/.*Name: GLIBC_\([0-9][0-9.]*\).*/\1/p'
+            } | sort -Vu | tail -n 1)"
+            if [ -z "$max_glibc" ]; then
+              echo "no GLIBC version requirements found in $file" >&2
+              exit 1
+            fi
+            if [ "$(printf '%s\n' 2.28 "$max_glibc" | sort -V | tail -n 1)" != 2.28 ]; then
+              echo "glibc floor regressed: GLIBC_$max_glibc is newer than GLIBC_2.28" >&2
+              exit 1
+            fi
 
-          max_glibcxx="$({
-            readelf --version-info "$file" \
-              | sed -n 's/.*Name: GLIBCXX_\([0-9][0-9.]*\).*/\1/p'
-          } | sort -Vu | tail -n 1)"
-          if [ -z "$max_glibcxx" ]; then
-            echo "no GLIBCXX version requirements found in $file" >&2
-            exit 1
-          fi
-          if [ "$(printf '%s\n' 3.4.25 "$max_glibcxx" | sort -V | tail -n 1)" != 3.4.25 ]; then
-            echo "libstdc++ floor regressed: GLIBCXX_$max_glibcxx is newer than GLIBCXX_3.4.25" >&2
-            exit 1
-          fi
+            max_glibcxx="$({
+              readelf --version-info "$file" \
+                | sed -n 's/.*Name: GLIBCXX_\([0-9][0-9.]*\).*/\1/p'
+            } | sort -Vu | tail -n 1)"
+            if [ -z "$max_glibcxx" ]; then
+              echo "no GLIBCXX version requirements found in $file" >&2
+              exit 1
+            fi
+            if [ "$(printf '%s\n' 3.4.25 "$max_glibcxx" | sort -V | tail -n 1)" != 3.4.25 ]; then
+              echo "libstdc++ floor regressed: GLIBCXX_$max_glibcxx is newer than GLIBCXX_3.4.25" >&2
+              exit 1
+            fi
 
-          dynamic="$(readelf --dynamic "$file")"
-          grep -q 'Shared library: \[libdl.so.2\]' <<<"$dynamic" || {
-            echo "Linux prebuild does not declare its libdl.so.2 dependency" >&2
-            exit 1
-          }
-          if ! grep -q 'Shared library: \[libstdc++\.so\.6\]' <<<"$dynamic"; then
-            echo "Linux prebuild does not declare its shared libstdc++ runtime" >&2
-            exit 1
-          fi
+            dynamic="$(readelf --dynamic "$file")"
+            grep -q 'Shared library: \[libdl.so.2\]' <<<"$dynamic" || {
+              echo "Linux prebuild does not declare its libdl.so.2 dependency" >&2
+              exit 1
+            }
+            if ! grep -q 'Shared library: \[libstdc++\.so\.6\]' <<<"$dynamic"; then
+              echo "Linux prebuild does not declare its shared libstdc++ runtime" >&2
+              exit 1
+            fi
+          done
 
       - name: Verify Windows prebuild compatibility
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $file = '${{ matrix.prebuilt_path }}/${{ matrix.filename }}'
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           $installation = & $vswhere -latest -products * -property installationPath
           if (-not $installation) {
@@ -176,15 +193,19 @@ jobs:
             throw 'dumpbin.exe not found'
           }
 
-          $dependencies = & $dumpbin.FullName /DEPENDENTS $file | Out-String
-          Write-Host $dependencies
-          $forbidden = [regex]::Matches(
-            $dependencies,
-            '(?im)^\s*((?:vcruntime|msvcp|ucrtbase|api-ms-win-crt)[^\s]*\.dll)\s*$'
-          )
-          if ($forbidden.Count -ne 0) {
-            $names = $forbidden | ForEach-Object { $_.Groups[1].Value }
-            throw "Windows prebuild has dynamic C/C++ runtime dependencies: $($names -join ', ')"
+          foreach ($family in $env:FAMILIES.Split(' ')) {
+            $file = "packages/$family/${{ matrix.platform }}/prebuilt/${{ matrix.filename }}"
+            Write-Host "checking $file"
+            $dependencies = & $dumpbin.FullName /DEPENDENTS $file | Out-String
+            Write-Host $dependencies
+            $forbidden = [regex]::Matches(
+              $dependencies,
+              '(?im)^\s*((?:vcruntime|msvcp|ucrtbase|api-ms-win-crt)[^\s]*\.dll)\s*$'
+            )
+            if ($forbidden.Count -ne 0) {
+              $names = $forbidden | ForEach-Object { $_.Groups[1].Value }
+              throw "Windows prebuild has dynamic C/C++ runtime dependencies: $($names -join ', ')"
+            }
           }
 
       - name: Test N-API prebuild on Node 20
@@ -194,9 +215,14 @@ jobs:
           architecture: ${{ matrix.nodearch }}
 
       - name: Test N-API prebuild on Node 20
+        shell: bash
         run: |
-          node ./test/backend.test.js
-          node --expose-internals ./test/require-parity.test.js
+          for family in $FAMILIES; do
+            echo "::group::$family"
+            NARB_PRODUCT="$family" node ./test/backend.test.js
+            NARB_PRODUCT="$family" node --expose-internals ./test/require-parity.test.js
+            echo "::endgroup::"
+          done
         env:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
@@ -209,9 +235,14 @@ jobs:
           architecture: ${{ matrix.nodearch }}
 
       - name: Test N-API prebuild on Node 21
+        shell: bash
         run: |
-          node ./test/backend.test.js
-          node --expose-internals ./test/require-parity.test.js
+          for family in $FAMILIES; do
+            echo "::group::$family"
+            NARB_PRODUCT="$family" node ./test/backend.test.js
+            NARB_PRODUCT="$family" node --expose-internals ./test/require-parity.test.js
+            echo "::endgroup::"
+          done
         env:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
@@ -224,9 +255,14 @@ jobs:
           architecture: ${{ matrix.nodearch }}
 
       - name: Test N-API prebuild on Node 22
+        shell: bash
         run: |
-          node ./test/backend.test.js
-          node --expose-internals ./test/require-parity.test.js
+          for family in $FAMILIES; do
+            echo "::group::$family"
+            NARB_PRODUCT="$family" node ./test/backend.test.js
+            NARB_PRODUCT="$family" node --expose-internals ./test/require-parity.test.js
+            echo "::endgroup::"
+          done
         env:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
@@ -241,9 +277,14 @@ jobs:
 
       - name: Test N-API prebuild on Node 23
         if: matrix.platform != 'win32-ia32-msvc'
+        shell: bash
         run: |
-          node ./test/backend.test.js
-          node --expose-internals ./test/require-parity.test.js
+          for family in $FAMILIES; do
+            echo "::group::$family"
+            NARB_PRODUCT="$family" node ./test/backend.test.js
+            NARB_PRODUCT="$family" node --expose-internals ./test/require-parity.test.js
+            echo "::endgroup::"
+          done
         env:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
@@ -258,9 +299,14 @@ jobs:
 
       - name: Test N-API prebuild on Node 24
         if: matrix.platform != 'win32-ia32-msvc'
+        shell: bash
         run: |
-          node ./test/backend.test.js
-          node --expose-internals ./test/require-parity.test.js
+          for family in $FAMILIES; do
+            echo "::group::$family"
+            NARB_PRODUCT="$family" node ./test/backend.test.js
+            NARB_PRODUCT="$family" node --expose-internals ./test/require-parity.test.js
+            echo "::endgroup::"
+          done
         env:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
@@ -275,9 +321,14 @@ jobs:
 
       - name: Test N-API prebuild on Node 25
         if: matrix.platform != 'win32-ia32-msvc'
+        shell: bash
         run: |
-          node ./test/backend.test.js
-          node --expose-internals ./test/require-parity.test.js
+          for family in $FAMILIES; do
+            echo "::group::$family"
+            NARB_PRODUCT="$family" node ./test/backend.test.js
+            NARB_PRODUCT="$family" node --expose-internals ./test/require-parity.test.js
+            echo "::endgroup::"
+          done
         env:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
@@ -292,9 +343,14 @@ jobs:
 
       - name: Test N-API prebuild on Node 26
         if: matrix.platform != 'win32-ia32-msvc'
+        shell: bash
         run: |
-          node ./test/backend.test.js
-          node --expose-internals ./test/require-parity.test.js
+          for family in $FAMILIES; do
+            echo "::group::$family"
+            NARB_PRODUCT="$family" node ./test/backend.test.js
+            NARB_PRODUCT="$family" node --expose-internals ./test/require-parity.test.js
+            echo "::endgroup::"
+          done
         env:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
@@ -309,9 +365,14 @@ jobs:
 
       - name: Test N-API prebuild on Node 27 nightly
         if: matrix.platform != 'win32-ia32-msvc'
+        shell: bash
         run: |
-          node ./test/backend.test.js
-          node --expose-internals ./test/require-parity.test.js
+          for family in $FAMILIES; do
+            echo "::group::$family"
+            NARB_PRODUCT="$family" node ./test/backend.test.js
+            NARB_PRODUCT="$family" node --expose-internals ./test/require-parity.test.js
+            echo "::endgroup::"
+          done
         env:
           NARB_BACKEND: napi
           NARB_EXPECTED_BACKEND: napi
@@ -331,15 +392,178 @@ jobs:
         run: pnpm -s headers -- --github-env
 
       - name: Test nodeabi source build
-        run: pnpm test:nodeabi
+        shell: bash
+        run: |
+          for family in $FAMILIES; do
+            echo "::group::$family nodeabi"
+            NARB_PRODUCT="$family" pnpm test:nodeabi
+            echo "::endgroup::"
+          done
 
-      - name: Upload N-API prebuild
+      # One step per family: upload-artifact takes a single name, and downstream
+      # jobs resolve these artifacts by name. Indices match the matrix uploads
+      # list, so adding a family means adding a step here.
+      - name: Upload N-API prebuild (${{ matrix.uploads[0].family }})
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.prebuilt_path }}/${{ matrix.filename }}
+          name: ${{ matrix.uploads[0].artifact }}
+          path: ${{ matrix.uploads[0].path }}
           if-no-files-found: error
           retention-days: 7
+
+      - name: Upload N-API prebuild (${{ matrix.uploads[1].family }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.uploads[1].artifact }}
+          path: ${{ matrix.uploads[1].path }}
+          if-no-files-found: error
+          retention-days: 7
+
+  distro-node:
+    name: 'Distro Node: ${{ matrix.platform }} / ${{ matrix.distro }}'
+    needs:
+      - matrix
+      - supported
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix.outputs.distro_platforms) }}
+    env:
+      NARB_TRACE: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.build_node }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies without package install scripts
+        run: pnpm install --ignore-scripts --frozen-lockfile
+
+      - name: Build TypeScript entrypoints
+        run: pnpm build:ts
+
+      - name: Download N-API prebuilds for every family
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ matrix.artifact_pattern }}
+          path: /tmp/prebuilds
+
+      - name: Place prebuilds and show what was downloaded
+        shell: bash
+        run: |
+          for family in ${{ matrix.families }}; do
+            src="/tmp/prebuilds/prebuild-$family-${{ matrix.platform }}-napi-v9"
+            dst="packages/$family/${{ matrix.platform }}/prebuilt"
+            mkdir -p "$dst"
+            cp "$src"/* "$dst/"
+            ls -l "$dst"
+          done
+
+      # A distribution's Node is a different binary, not just a different version:
+      # usually a thin /usr/bin/node against a shared libnode.so, built with
+      # hardening flags the nodejs.org binaries do not use. Measured so far: Fedora
+      # combines `-mbranch-protection=standard` with `-mno-omit-leaf-frame-pointer`,
+      # which gives even the private getter the probe decodes both pointer
+      # authentication and a frame record (28 bytes); Debian enables branch
+      # protection but without +leaf, so its getter stays `bti c; ldr; ret`
+      # (12 bytes). The shape follows each distribution's own flags, so the decoder
+      # is exercised against real packaged binaries.
+      #
+      # Install command, binary path and version query come from the matrix because
+      # package managers and layouts differ. One container per Node stream, since
+      # only Fedora installs streams in parallel; both families are tested inside
+      # it, and a failing combination does not stop the others so one run reports
+      # everything.
+      #
+      # Image tags pin a maintained release but float within it on purpose: a
+      # rebuild that changes compiler flags is exactly the regression this job
+      # exists to catch, so exact package versions are logged rather than pinned.
+      - name: Test prebuilds against ${{ matrix.distro }}
+        shell: bash
+        run: |
+          case "$RUNNER_ARCH" in
+            X64) expect_arch=x86_64 ;;
+            ARM64) expect_arch=aarch64 ;;
+            *) echo "unsupported Linux runner architecture: $RUNNER_ARCH" >&2; exit 1 ;;
+          esac
+
+          status=0
+          for stream in ${{ matrix.distro_streams }}; do
+            echo "::group::${{ matrix.distro }} / node stream $stream"
+            docker run --rm \
+              --env NARB_BACKEND=napi \
+              --env NARB_EXPECTED_BACKEND=napi \
+              --env NARB_DISABLE_LOCAL_BUILD=1 \
+              --env NARB_TRACE \
+              --env "EXPECT_ARCH=$expect_arch" \
+              --env "V=$stream" \
+              --env "FAMILIES=${{ matrix.families }}" \
+              --env 'INSTALL=${{ matrix.distro_install }}' \
+              --env 'BINARY=${{ matrix.distro_binary }}' \
+              --env 'PROBE=${{ matrix.distro_probe }}' \
+              --volume "$GITHUB_WORKSPACE:/workspace" \
+              --workdir /workspace \
+              "${{ matrix.distro_image }}" \
+              bash -ceu '
+                test "$(uname -m)" = "$EXPECT_ARCH"
+
+                # These are templates from scripts/github-matrix.mjs, not external
+                # input; eval is what expands $V and $node_bin inside them. Nothing
+                # here is tolerated failing: a package that cannot be installed or
+                # identified means the job is not testing what it claims to.
+                eval "$INSTALL" >/dev/null
+                node_bin=$(eval echo "$BINARY")
+                eval "$PROBE"
+                "$node_bin" -v
+
+                # Record the branch-protection census of the image that actually
+                # contains V8. Which distributions harden their builds is a
+                # measured property of their flags, so it is logged rather than
+                # assumed. A statically linked Node has no shared libnode but can
+                # still export the private symbol (the Rocky nodejs:20 stream and
+                # openSUSE both do), so the census falls back to the interpreter
+                # itself rather than being skipped.
+                # ldd exits non-zero on a static binary; that is the case handled
+                # just below, not an error to propagate.
+                lib=$(ldd "$node_bin" | awk "/libnode\.so/ {print \$3; exit}" || true)
+                if [ -n "$lib" ]; then
+                  echo "libnode: $lib"
+                else
+                  echo "libnode: none (statically linked); censusing $node_bin"
+                  lib="$node_bin"
+                fi
+                objdump -d "$lib" > /tmp/dis.txt
+                # grep -c exits 1 when a count is legitimately zero, which is a
+                # result rather than a failure.
+                printf "hardening: paciasp=%s bti_c=%s endbr64=%s retaa=%s\n" \
+                  "$(grep -c "\bpaciasp\b" /tmp/dis.txt || true)" \
+                  "$(grep -c "\bbti\s*c\b" /tmp/dis.txt || true)" \
+                  "$(grep -c "\bendbr64\b" /tmp/dis.txt || true)" \
+                  "$(grep -c "\breta[ab]\b" /tmp/dis.txt || true)"
+
+                # NARB_TRACE is on, so a decode failure prints the probe trace and
+                # both decode stages reasons, and a binding-resolution failure
+                # prints every attempted path.
+                rc=0
+                for family in $FAMILIES; do
+                  echo "--- $family ---"
+                  export NARB_PRODUCT="$family"
+                  "$node_bin" ./test/backend.test.js || rc=1
+                  "$node_bin" --expose-internals ./test/require-parity.test.js || rc=1
+                done
+                exit $rc
+              ' || status=1
+            echo "::endgroup::"
+          done
+          exit $status
 
   hmr-comparison:
     name: 'HMR Test: ${{ matrix.family }} / ${{ matrix.platform }}'
