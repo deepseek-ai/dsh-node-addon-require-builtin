@@ -528,9 +528,9 @@ jobs:
                 # contains V8. Which distributions harden their builds is a
                 # measured property of their flags, so it is logged rather than
                 # assumed. A statically linked Node has no shared libnode but can
-                # still export the private symbol (Rocky's nodejs:20 and openSUSE
-                # do), so the census falls back to the interpreter itself rather
-                # than being skipped.
+                # still export the private symbol (the Rocky nodejs:20 stream and
+                # openSUSE both do), so the census falls back to the interpreter
+                # itself rather than being skipped.
                 # ldd exits non-zero on a static binary; that is the case handled
                 # just below, not an error to propagate.
                 lib=$(ldd "$node_bin" | awk "/libnode\.so/ {print \$3; exit}" || true)
