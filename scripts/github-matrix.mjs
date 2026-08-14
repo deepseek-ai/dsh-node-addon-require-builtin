@@ -100,14 +100,11 @@ function hmrPlatformMatrix() {
 //   rawhide   -> nodejs22, nodejs24, nodejs26 (26.3.1-5.fc45)
 // Using both also gets the GCC version difference between them for free.
 //
-// One job per (family, platform, distribution) walks every stream inside a single
-// container rather than fanning out a job per stream: the streams are parallel
-// installable, so this is one image pull and one dnf transaction instead of a
-// job's worth of setup each.
-//
 // Every entry is currently Fedora, so ci.yml issues dnf commands directly. Adding
 // a distribution with a different package manager means moving those commands
-// into this table.
+// into this table. Measured elsewhere and deliberately absent: Ubuntu 24.04
+// applies no branch protection at all and its Node is 18, below this project's
+// floor; Arch enables CET but not `-mbranch-protection`.
 const DISTROS = [
   {
     id: 'fedora-44',
@@ -126,25 +123,46 @@ const DISTROS = [
   },
 ];
 
+// One job per (platform, distribution). Both product families and every Node
+// stream run inside that one container: the streams are parallel installable and
+// the families differ only in which prebuilt binary is loaded, so a single image
+// pull and dnf transaction covers all of them. Fanning out per family and per
+// stream would pay a job's worth of setup for each combination instead.
 function distroPlatformMatrix() {
-  // Only the glibc Linux platforms: these jobs run a distribution's own Node
-  // package, which exists on Linux only.
-  const include = [];
+  // Platforms are the same set across families, so collect them once. The family
+  // list travels with each job and is iterated in shell.
+  const platforms = new Map();
   for (const family of FAMILIES) {
     for (const dir of platformDirsFor(family)) {
       const platform = path.basename(dir);
+      // Only the glibc Linux platforms: these jobs run a distribution's own Node
+      // package, which exists on Linux only.
       if (!platform.startsWith('linux-')) continue;
+      if (platforms.has(platform)) continue;
       const entry = platformEntry(family, dir);
-      for (const distro of DISTROS) {
-        include.push({
-          ...entry,
-          distro: distro.id,
-          distro_image: distro.image,
-          // Space separated so the job can iterate it in shell.
-          distro_streams: distro.streams.join(' '),
-          distro_optional: distro.optional,
-        });
-      }
+      platforms.set(platform, {
+        platform,
+        runner: entry.runner,
+        build_node: entry.build_node,
+      });
+    }
+  }
+
+  const include = [];
+  for (const base of platforms.values()) {
+    for (const distro of DISTROS) {
+      include.push({
+        ...base,
+        // Space separated so the job can iterate these in shell.
+        families: FAMILIES.join(' '),
+        // Downloads both families' prebuilds in one step; the job then moves each
+        // into packages/<family>/<platform>/prebuilt.
+        artifact_pattern: `prebuild-*-${base.platform}-napi-v9`,
+        distro: distro.id,
+        distro_image: distro.image,
+        distro_streams: distro.streams.join(' '),
+        distro_optional: distro.optional,
+      });
     }
   }
   return { include };

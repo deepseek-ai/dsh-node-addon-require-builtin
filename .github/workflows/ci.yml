@@ -344,7 +344,7 @@ jobs:
           retention-days: 7
 
   distro-node:
-    name: 'Distro Node: ${{ matrix.family }} / ${{ matrix.platform }} / ${{ matrix.distro }}'
+    name: 'Distro Node: ${{ matrix.platform }} / ${{ matrix.distro }}'
     needs:
       - matrix
       - supported
@@ -355,7 +355,6 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.matrix.outputs.distro_platforms) }}
     env:
-      NARB_PRODUCT: ${{ matrix.family }}
       NARB_TRACE: 1
     steps:
       - uses: actions/checkout@v4
@@ -377,14 +376,22 @@ jobs:
       - name: Build TypeScript entrypoints
         run: pnpm build:ts
 
-      - name: Download N-API prebuild
+      - name: Download N-API prebuilds for every family
         uses: actions/download-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.prebuilt_path }}
+          pattern: ${{ matrix.artifact_pattern }}
+          path: /tmp/prebuilds
 
-      - name: Show downloaded prebuild
-        run: ls -l '${{ matrix.prebuilt_path }}'
+      - name: Place prebuilds and show what was downloaded
+        shell: bash
+        run: |
+          for family in ${{ matrix.families }}; do
+            src="/tmp/prebuilds/prebuild-$family-${{ matrix.platform }}-napi-v9"
+            dst="packages/$family/${{ matrix.platform }}/prebuilt"
+            mkdir -p "$dst"
+            cp "$src"/* "$dst/"
+            ls -l "$dst"
+          done
 
       # A distribution's Node is a different binary, not just a different version:
       # a thin /usr/bin/node against a shared libnode.so, built with hardening
@@ -395,16 +402,16 @@ jobs:
       # change the getter's machine-code shape, so the decoder is exercised against
       # real packaged binaries rather than only nodejs.org builds.
       #
-      # All streams run in one container: they are parallel installable, so this is
-      # one image pull and one dnf transaction instead of a job's worth of setup
-      # per stream.
+      # Both families and all streams run in this one container. The streams are
+      # parallel installable and the families differ only in which prebuilt binary
+      # loads, so one image pull and one dnf transaction covers every combination.
       #
       # Image tags float within a release on purpose. A distribution rebuild that
       # changes compiler flags is exactly the regression this job exists to catch,
       # so the exact package versions are recorded in the log rather than pinned.
       # Images come from Fedora's own registry because Docker Hub has been
       # unreliable for them.
-      - name: Test prebuild against ${{ matrix.distro }} Node ${{ matrix.distro_streams }}
+      - name: Test prebuilds against ${{ matrix.distro }} Node ${{ matrix.distro_streams }}
         shell: bash
         run: |
           case "$RUNNER_ARCH" in
@@ -417,10 +424,10 @@ jobs:
             --env NARB_BACKEND=napi \
             --env NARB_EXPECTED_BACKEND=napi \
             --env NARB_DISABLE_LOCAL_BUILD=1 \
-            --env NARB_PRODUCT \
             --env NARB_TRACE \
             --env "EXPECT_ARCH=$expect_arch" \
             --env "STREAMS=${{ matrix.distro_streams }}" \
+            --env "FAMILIES=${{ matrix.families }}" \
             --volume "$GITHUB_WORKSPACE:/workspace" \
             --workdir /workspace \
             "${{ matrix.distro_image }}" \
@@ -430,35 +437,41 @@ jobs:
               pkgs=""
               for v in $STREAMS; do pkgs="$pkgs nodejs$v"; done
               dnf install -y --setopt=install_weak_deps=False $pkgs >/dev/null
-
-              # Record the branch-protection census of each libnode. Which
-              # distributions harden their builds is a measured property of their
-              # flags, so it is logged rather than assumed.
+              # binutils is only for the hardening census below, never required.
               dnf install -y binutils >/dev/null 2>&1 || true
 
               status=0
               for v in $STREAMS; do
                 node_bin="/usr/bin/node-$v"
-                echo "::group::$(rpm -q nodejs$v-libs) $("$node_bin" -v)"
 
+                # Record the branch-protection census of this libnode. Which
+                # distributions harden their builds is a measured property of their
+                # flags, so it is logged rather than assumed.
                 lib=$(ldd "$node_bin" | awk "/libnode\.so/ {print \$3; exit}")
-                echo "libnode: ${lib:-none (statically linked)}"
+                census=""
                 if [ -n "$lib" ] && command -v objdump >/dev/null 2>&1; then
                   objdump -d "$lib" > /tmp/dis.txt 2>/dev/null || true
-                  printf "hardening: paciasp=%s bti_c=%s endbr64=%s retaa=%s\n" \
+                  census=$(printf "paciasp=%s bti_c=%s endbr64=%s retaa=%s" \
                     "$(grep -c "\bpaciasp\b" /tmp/dis.txt || true)" \
                     "$(grep -c "\bbti\s*c\b" /tmp/dis.txt || true)" \
                     "$(grep -c "\bendbr64\b" /tmp/dis.txt || true)" \
-                    "$(grep -c "\breta[ab]\b" /tmp/dis.txt || true)"
+                    "$(grep -c "\breta[ab]\b" /tmp/dis.txt || true)")
                 fi
 
-                # NARB_TRACE is on, so a decode failure prints the probe trace and
-                # both decode stages reasons; a binding-resolution failure prints
-                # every attempted path.
-                if ! "$node_bin" ./test/backend.test.js; then status=1; fi
-                if ! "$node_bin" --expose-internals ./test/require-parity.test.js; then status=1; fi
+                for family in $FAMILIES; do
+                  echo "::group::$family on $(rpm -q nodejs$v-libs)"
+                  echo "node: $("$node_bin" -v)  libnode: ${lib:-none (static)}"
+                  [ -n "$census" ] && echo "hardening: $census"
 
-                echo "::endgroup::"
+                  # NARB_TRACE is on, so a decode failure prints the probe trace
+                  # and both decode stages reasons, and a binding-resolution
+                  # failure prints every attempted path.
+                  export NARB_PRODUCT="$family"
+                  if ! "$node_bin" ./test/backend.test.js; then status=1; fi
+                  if ! "$node_bin" --expose-internals ./test/require-parity.test.js; then status=1; fi
+
+                  echo "::endgroup::"
+                done
               done
               exit $status
             '
