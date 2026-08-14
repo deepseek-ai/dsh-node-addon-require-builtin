@@ -592,6 +592,53 @@ int main() {
                     "test", 32),
                 0x208, "test pac-frame-ldr-x0-[this-imm]-ret");
 
+  // --- walker is a strict superset of the fixed-position matcher ------------
+  // MatchArm64FieldGetter's entire input space is enumerable: an optional `bti c`
+  // followed by `ldr x0,[x0,#imm12*8]` and `ret`, so 2 x 4096 shapes. Check every
+  // one of them rather than asserting the containment in a comment. Wherever the
+  // fixed-position matcher accepts, the walker must accept with an identical
+  // offset and an identical pattern string; wherever it rejects, the walker must
+  // not silently invent a different offset.
+  {
+    size_t accepted = 0;
+    size_t mismatches = 0;
+    for (int bti = 0; bti < 2; bti++) {
+      for (uint32_t imm12 = 0; imm12 < 4096; imm12++) {
+        std::vector<uint32_t> body;
+        if (bti) body.push_back(0xd503245fu);
+        body.push_back(0xf9400000u | (imm12 << 10));
+        body.push_back(0xd65f03c0u);
+        std::vector<uint32_t> words = Arm64Words(body);
+
+        Result<GetterPattern> fixed =
+            MatchArm64FieldGetter(words.data(), "t");
+        Result<GetterPattern> walk = MatchArm64AapcsFieldGetter(
+            words.data(), "t", kGetterCodeWindowBytes);
+
+        if (!fixed.ok()) {
+          // The only rejections here are implausible offsets, which the walker
+          // must reject for the same reason.
+          if (walk.ok()) mismatches++;
+          continue;
+        }
+        accepted++;
+        if (!walk.ok() || walk.value().offset != fixed.value().offset ||
+            walk.value().pattern != fixed.value().pattern) {
+          mismatches++;
+        }
+      }
+    }
+    if (mismatches != 0) {
+      std::printf("FAIL %-52s %zu of 8192 shapes disagree\n",
+                  "arm64 walker superset of fixed-position", mismatches);
+      g_failures++;
+    } else {
+      std::printf(
+          "ok   %-52s 8192 shapes, %zu accepted, all identical\n",
+          "arm64 walker superset of fixed-position", accepted);
+    }
+  }
+
   // --- archived real machine code -----------------------------------------
   // Every fixture in test/getter_fixtures.inc, which holds bytes emitted by real
   // toolchains across an optimization/hardening matrix plus bytes read out of
