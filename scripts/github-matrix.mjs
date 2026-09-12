@@ -3,6 +3,7 @@
 import path from 'node:path';
 
 import { FAMILIES, platformDirsFor, readJson, root } from './packages.mjs';
+import { electronReleaseCatalog } from './electron-releases.mjs';
 
 const RUNNERS = {
   'darwin-arm64': 'macos-15',
@@ -22,6 +23,26 @@ const NODE_ARCH = {
 
 const BUILD_NODE = {
   'win32-ia32-msvc': 22,
+};
+
+const ELECTRON_ARCH = {
+  'darwin-arm64': 'arm64',
+  'darwin-x64': 'x64',
+  'linux-arm64-gnu': 'arm64',
+  'linux-x64-gnu': 'x64',
+  'win32-arm64-msvc': 'arm64',
+  'win32-ia32-msvc': 'ia32',
+  'win32-x64-msvc': 'x64',
+};
+
+const ELECTRON_PLATFORM = {
+  'darwin-arm64': 'darwin',
+  'darwin-x64': 'darwin',
+  'linux-arm64-gnu': 'linux',
+  'linux-x64-gnu': 'linux',
+  'win32-arm64-msvc': 'win32',
+  'win32-ia32-msvc': 'win32',
+  'win32-x64-msvc': 'win32',
 };
 
 function napiBinary(dir) {
@@ -111,6 +132,38 @@ function hmrPlatformMatrix() {
   const family = 'internal-loader';
   return {
     include: platformDirsFor(family).map((dir) => platformEntry(family, dir)),
+  };
+}
+
+function electronPlatformMatrix() {
+  return {
+    include: ciPlatformMatrix().include
+      .filter((entry) => ELECTRON_ARCH[entry.platform])
+      .map((entry) => {
+        const versions = electronReleaseCatalog.versionsForPlatform(entry.platform);
+        if (versions.length === 0) {
+          throw new Error(`missing Electron releases for ${entry.platform}`);
+        }
+        return {
+          platform: entry.platform,
+          runner: entry.runner,
+          build_node: entry.build_node,
+          electron_platform: ELECTRON_PLATFORM[entry.platform],
+          electron_versions: versions.join(' '),
+          arch: ELECTRON_ARCH[entry.platform],
+          families: entry.families,
+          artifact_pattern: `prebuild-*-${entry.platform}-napi-v9`,
+          ...(entry.nodearch
+            ? {
+                // Electron 43's installer has no win32-ia32 extraction binary.
+                // Download the official ia32 distribution from an x64 host
+                // process, then switch back to x86 Node for the test driver.
+                nodearch: 'x64',
+                test_nodearch: entry.nodearch,
+              }
+            : {}),
+        };
+      }),
   };
 }
 
@@ -306,6 +359,7 @@ function distroPlatformMatrix() {
 const target = process.argv[2];
 const matrices = {
   'ci-platforms': ciPlatformMatrix,
+  'ci-electron-platforms': electronPlatformMatrix,
   'ci-hmr-platforms': hmrPlatformMatrix,
   'ci-distro-platforms': distroPlatformMatrix,
   'release-platforms': platformMatrix,

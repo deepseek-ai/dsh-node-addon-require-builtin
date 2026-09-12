@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       platforms: ${{ steps.matrix.outputs.platforms }}
+      electron_platforms: ${{ steps.matrix.outputs.electron_platforms }}
       hmr_platforms: ${{ steps.matrix.outputs.hmr_platforms }}
       distro_platforms: ${{ steps.matrix.outputs.distro_platforms }}
     steps:
@@ -23,6 +24,7 @@ jobs:
       - id: matrix
         run: |
           echo "platforms=$(node ./scripts/github-matrix.mjs ci-platforms)" >> "$GITHUB_OUTPUT"
+          echo "electron_platforms=$(node ./scripts/github-matrix.mjs ci-electron-platforms)" >> "$GITHUB_OUTPUT"
           echo "hmr_platforms=$(node ./scripts/github-matrix.mjs ci-hmr-platforms)" >> "$GITHUB_OUTPUT"
           echo "distro_platforms=$(node ./scripts/github-matrix.mjs ci-distro-platforms)" >> "$GITHUB_OUTPUT"
 
@@ -418,6 +420,88 @@ jobs:
           path: ${{ matrix.uploads[1].path }}
           if-no-files-found: error
           retention-days: 7
+
+  electron:
+    name: 'Electron: ${{ matrix.platform }}'
+    needs:
+      - matrix
+      - supported
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix.outputs.electron_platforms) }}
+    env:
+      NARB_DISABLE_LOCAL_BUILD: 1
+      NARB_DISABLE_NATIVE_CACHE: 1
+      NARB_ELECTRON_VERSIONS: ${{ matrix.electron_versions }}
+      NARB_EXPECTED_ARCH: ${{ matrix.arch }}
+      ELECTRON_INSTALL_ARCH: ${{ matrix.arch }}
+      ELECTRON_INSTALL_PLATFORM: ${{ matrix.electron_platform }}
+      NARB_TRACE: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.build_node }}
+          architecture: ${{ matrix.nodearch }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Use bash for pnpm scripts (Windows)
+        if: runner.os == 'Windows'
+        run: pnpm config set script-shell "C:\Program Files\Git\bin\bash.exe"
+
+      - name: Install dependencies without package install scripts
+        run: pnpm install --ignore-scripts --frozen-lockfile
+
+      - name: Build TypeScript entrypoints
+        run: pnpm build:ts
+
+      - name: Prepare ia32 Electron distribution
+        if: matrix.test_nodearch
+        run: node ./scripts/test-electron.mjs --prepare-only
+
+      - name: Use x86 Node for ia32 Electron test driver
+        if: matrix.test_nodearch
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.build_node }}
+          architecture: ${{ matrix.test_nodearch }}
+
+      - name: Install Xvfb (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          if ! command -v xvfb-run >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+
+      - name: Download N-API prebuilds for both products
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ matrix.artifact_pattern }}
+          path: electron-prebuilds
+
+      - name: Place Electron test prebuilds
+        shell: bash
+        run: |
+          for family in ${{ matrix.families }}; do
+            src="electron-prebuilds/prebuild-$family-${{ matrix.platform }}-napi-v9"
+            dst="packages/$family/${{ matrix.platform }}/prebuilt"
+            mkdir -p "$dst"
+            cp "$src"/* "$dst/"
+            ls -l "$dst"
+          done
+
+      - name: Run both products in supported Electron versions
+        run: pnpm test:electron
 
   distro-node:
     name: 'Distro Node: ${{ matrix.platform }} / ${{ matrix.distro }}'
