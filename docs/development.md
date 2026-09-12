@@ -32,6 +32,26 @@ pnpm test:optional
 pnpm typecheck
 ```
 
+Electron tests use pinned npm aliases for every supported version and
+current-platform prebuilds for both products:
+
+```sh
+NARB_PRODUCT=require-builtin pnpm build:prebuild:napi
+NARB_PRODUCT=internal-loader pnpm build:prebuild:napi
+pnpm test:electron
+```
+
+The test downloads and launches each configured Electron release in a real
+main process twice, once per product. Set `NARB_ELECTRON_VERSIONS` to a
+space-separated subset. To test an existing installation, set exactly one
+version plus its executable:
+
+```sh
+NARB_ELECTRON_VERSIONS=44.0.0 \
+ELECTRON_EXECUTABLE=/absolute/path/to/Electron \
+pnpm test:electron
+```
+
 Backend comparison needs official Node.js public headers for the current runtime:
 
 ```sh

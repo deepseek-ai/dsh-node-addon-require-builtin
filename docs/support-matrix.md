@@ -19,6 +19,23 @@ The internal module allowlist is documented separately in
 [internal-modules.md](internal-modules.md), including the supported semver
 ranges for each Node major.
 
+## Electron
+
+Electron support is intentionally version-specific because Electron can pair a
+Node release with a newer V8 ABI than upstream Node uses.
+
+| Electron version | Embedded Node | Embedded V8 | macOS arm64/x64 | Linux arm64/x64 | Windows arm64/x64 | Windows ia32 |
+|---|---|---|---|---|---|---|
+| 43.0.0 | 24.17.0 | 15.0.245.13-electron.0 | Supported | Supported | Supported | Supported |
+| 44.0.0 | 24.18.1 | 15.2.124.13-electron.0 | Supported | Supported | Supported | No official binary |
+| 45.0.0-alpha.6 | 24.21.0 | 15.4.80-electron.0 | Supported | Supported | Supported | No official binary |
+
+Each supported cell runs both `require-builtin` and `internal-loader` in a real
+Electron main process on a native-architecture GitHub Actions runner. Windows
+ia32 runs the official 32-bit Electron under WoW64, matching the existing Node
+ia32 prebuild workflow. Other Electron versions are rejected by the runtime
+profile until separately analyzed and added to CI.
+
 ## Platform x Node Matrix
 
 Both product families publish the same supported optional prebuild package
@@ -103,7 +120,9 @@ Not published yet:
 Supported platform packages are exercised in CI with N-API optional prebuild
 builds across supported Node majors, both product families, optional package
 loading, repository source builds, nodeabi source-build validation, and
-require-parity against the genuine internals.
+require-parity against the genuine internals. The Electron targets reuse those
+same N-API optional prebuilds and add pinned main-process tests for every
+official version/platform combination in the table above.
 
 Unsupported runtimes should fail closed with diagnostics rather than loading an
 unchecked internal module.

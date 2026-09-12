@@ -22,6 +22,7 @@
     "test:parity": "pnpm build && NARB_BACKEND=napi NARB_DISABLE_OPTIONAL_PACKAGE=1 node --expose-internals ./test/require-parity.test.js",
     "test:parity:products": "NARB_PRODUCT=require-builtin pnpm test:parity && NARB_PRODUCT=internal-loader pnpm test:parity",
     "test:decoder": "tsx ./scripts/test-getter-decoder.ts",
+    "test:electron": "node ./scripts/test-electron.mjs",
     "test:backends": "pnpm build:ts && tsx ./scripts/test-backends.ts",
     "test:nodeabi": "pnpm build:ts && pnpm build:native:nodeabi && NARB_BACKEND=nodeabi NARB_DISABLE_OPTIONAL_PACKAGE=1 node ./test/backend.test.js",
     "test:optional": "pnpm test:optional:napi",
@@ -39,6 +40,9 @@
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
+    "electron-43": "npm:electron@43.0.0",
+    "electron-44": "npm:electron@44.0.0",
+    "electron-45": "npm:electron@45.0.0-alpha.6",
     "node-addon-api": "^8.9.0",
     "node-gyp": "12.4.0",
     "tsx": "^4.20.6",
