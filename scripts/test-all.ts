@@ -78,6 +78,9 @@ function main(): void {
   console.log('\n## Getter decoder self-test');
   run(buildRuntime.node, ['--import', 'tsx', './scripts/test-getter-decoder.ts']);
 
+  console.log('\n## Runtime profile self-test');
+  run(buildRuntime.node, ['--import', 'tsx', './scripts/test-runtime-profile.ts']);
+
   // Build and test each product family separately: build.ts writes to a
   // family-specific output path chosen by NARB_PRODUCT, and backend.test.js
   // picks the matching entry package from the same variable.

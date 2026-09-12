@@ -22,6 +22,7 @@
     "test:parity": "pnpm build && NARB_BACKEND=napi NARB_DISABLE_OPTIONAL_PACKAGE=1 node --expose-internals ./test/require-parity.test.js",
     "test:parity:products": "NARB_PRODUCT=require-builtin pnpm test:parity && NARB_PRODUCT=internal-loader pnpm test:parity",
     "test:decoder": "tsx ./scripts/test-getter-decoder.ts",
+    "test:profile": "tsx ./scripts/test-runtime-profile.ts",
     "test:electron": "node ./scripts/test-electron.mjs",
     "test:backends": "pnpm build:ts && tsx ./scripts/test-backends.ts",
     "test:nodeabi": "pnpm build:ts && pnpm build:native:nodeabi && NARB_BACKEND=nodeabi NARB_DISABLE_OPTIONAL_PACKAGE=1 node ./test/backend.test.js",

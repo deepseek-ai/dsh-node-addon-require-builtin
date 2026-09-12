@@ -133,21 +133,25 @@ console.log(
 );
 
 if (info.backend === 'napi' && !process.versions.electron) {
-  // Runtime profiles are selected from the public host marker. Unsupported
-  // Electron versions must stop before any Electron-specific private ABI is
-  // attempted; keep this in a separate final probe so the normal Node path
-  // above remains the behavior under test for the rest of this file.
-  Object.defineProperty(process.versions, 'electron', {
-    configurable: true,
-    value: '42.0.0',
-  });
-  assert.throws(
-    () => addon.requireBuiltin('internal/modules/esm/loader'),
-    (error) => {
-      assert.equal(error.code, 'Unsupported/no-context');
-      assert.match(error.message, /unsupported Electron version: 42\.0\.0/);
-      return true;
-    },
-  );
-  delete process.versions.electron;
+  // Runtime selection must use native Node/V8 build metadata, not mutable JS
+  // properties. Spoof a complete supported Electron tuple and prove that the
+  // ordinary Node path still resolves the same module object.
+  const nodeDescriptor = Object.getOwnPropertyDescriptor(process.versions, 'node');
+  const v8Descriptor = Object.getOwnPropertyDescriptor(process.versions, 'v8');
+  try {
+    Object.defineProperties(process.versions, {
+      electron: { configurable: true, value: '43.0.0' },
+      node: { configurable: true, value: '24.17.0' },
+      v8: { configurable: true, value: '15.0.245.13-electron.0' },
+    });
+    assert.strictEqual(
+      addon.requireBuiltin('internal/modules/esm/loader'),
+      esmLoader,
+      'mutable process.versions values must not redirect the native Node profile',
+    );
+  } finally {
+    delete process.versions.electron;
+    Object.defineProperty(process.versions, 'node', nodeDescriptor);
+    Object.defineProperty(process.versions, 'v8', v8Descriptor);
+  }
 }

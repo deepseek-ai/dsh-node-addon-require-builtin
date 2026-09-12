@@ -29,6 +29,7 @@ pnpm build:ts
 pnpm build:native:napi
 pnpm test
 pnpm test:optional
+pnpm test:profile
 pnpm typecheck
 ```
 

@@ -114,7 +114,8 @@ Constraints:
 - Uses N-API immediately to validate the candidate handle.
 
 Before choosing the V8 embedder-data ABI, the N-API backend creates a runtime
-profile from `process.versions.electron` and the Node version:
+profile from two values compiled into the loaded runtime: the Node version from
+`napi_get_node_version()` and the V8 version from `v8::V8::GetVersion()`:
 
 | Runtime | Embedder-data ABI | Tag |
 |---|---|---:|
@@ -122,11 +123,14 @@ profile from `process.versions.electron` and the Node version:
 | Node 26+ | tagged overload | `kPerContextData=2` |
 | Electron 43.0.0, 44.0.0, 45.0.0-alpha.6 | tagged overload | default `0` |
 
-Electron is an explicit branch, not a fallback from the Node version logic.
-These releases report Node 24 but embed V8 15.0-15.4, whose context API already
-uses the tagged signature. Their Node context initialization still writes Realm
-slot 38 with tag 0. Unknown Electron versions fail before private symbols are
-called; ordinary Node keeps the pre-Electron selection and diagnostics.
+Electron is identified by V8's compiled `-electron.` embedder suffix and then
+matched against the exact Node/V8 pair for each supported release. These values
+come from native APIs and cannot be redirected by replacing JavaScript
+`process.versions` properties. The supported releases embed V8 15.0-15.4, whose
+context API already uses the tagged signature, while their Node context
+initialization still writes Realm slot 38 with tag 0. An unknown Electron
+fingerprint fails before private context access; a V8 version without the
+Electron suffix follows the pre-Electron Node-major selection.
 
 The profile chooses the calling convention only. Realm field offsets remain
 runtime facts decoded from `PrincipalRealm::builtin_module_require()` machine

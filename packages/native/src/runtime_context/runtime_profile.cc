@@ -9,63 +9,42 @@ namespace {
 constexpr uint16_t kElectronEmbedderDataTag = 0;
 
 struct ElectronProfileSpec {
-  std::string_view version;
+  std::string_view electron_version;
+  uint32_t node_major;
+  uint32_t node_minor;
+  uint32_t node_patch;
+  std::string_view v8_version;
   const char* diagnostic_name;
 };
 
 constexpr std::array<ElectronProfileSpec, 3> kElectronProfiles = {{
-    {"43.0.0", "electron-43 tagged default=0"},
-    {"44.0.0", "electron-44 tagged default=0"},
-    {"45.0.0-alpha.6", "electron-45-alpha tagged default=0"},
+    {"43.0.0", 24, 17, 0, "15.0.245.13-electron.0",
+     "electron-43 tagged default=0"},
+    {"44.0.0", 24, 18, 1, "15.2.124.13-electron.0",
+     "electron-44 tagged default=0"},
+    {"45.0.0-alpha.6", 24, 21, 0, "15.4.80-electron.0",
+     "electron-45-alpha tagged default=0"},
 }};
 
-struct ElectronVersion {
-  bool present = false;
-  std::string value;
-};
+bool IsElectronV8Version(std::string_view version) {
+  return version.find("-electron.") != std::string_view::npos;
+}
 
-Result<ElectronVersion> ReadElectronVersion(napi_env env) {
-  napi_value global = nullptr;
-  napi_value process = nullptr;
-  napi_value versions = nullptr;
-  bool has_electron = false;
-  if (napi_get_global(env, &global) != napi_ok || global == nullptr ||
-      napi_get_named_property(env, global, "process", &process) != napi_ok ||
-      process == nullptr ||
-      napi_get_named_property(env, process, "versions", &versions) != napi_ok ||
-      versions == nullptr ||
-      napi_has_named_property(env, versions, "electron", &has_electron) != napi_ok) {
-    return Result<ElectronVersion>::Failure(Status::Failure(
-        ProbeStatus::kUnsupportedNoContext,
-        "could not inspect process.versions for runtime host"));
-  }
-  if (!has_electron) return Result<ElectronVersion>::Ok({});
+bool Matches(const ElectronProfileSpec& profile,
+             const NativeRuntimeFingerprint& fingerprint) {
+  return profile.node_major == fingerprint.node_major &&
+      profile.node_minor == fingerprint.node_minor &&
+      profile.node_patch == fingerprint.node_patch &&
+      profile.v8_version == fingerprint.v8_version;
+}
 
-  napi_value electron = nullptr;
-  napi_valuetype type = napi_undefined;
-  if (napi_get_named_property(env, versions, "electron", &electron) != napi_ok ||
-      electron == nullptr || napi_typeof(env, electron, &type) != napi_ok ||
-      type != napi_string) {
-    return Result<ElectronVersion>::Failure(Status::Failure(
-        ProbeStatus::kUnsupportedNoContext,
-        "process.versions.electron is not a string"));
-  }
-
-  size_t size = 0;
-  if (napi_get_value_string_utf8(env, electron, nullptr, 0, &size) != napi_ok) {
-    return Result<ElectronVersion>::Failure(Status::Failure(
-        ProbeStatus::kUnsupportedNoContext,
-        "could not read process.versions.electron"));
-  }
-  std::string value(size + 1, '\0');
-  if (napi_get_value_string_utf8(
-          env, electron, value.data(), value.size(), &size) != napi_ok) {
-    return Result<ElectronVersion>::Failure(Status::Failure(
-        ProbeStatus::kUnsupportedNoContext,
-        "could not read process.versions.electron"));
-  }
-  value.resize(size);
-  return Result<ElectronVersion>::Ok({true, std::move(value)});
+void AppendNodeVersion(std::string* output,
+                       const NativeRuntimeFingerprint& fingerprint) {
+  output->append(std::to_string(fingerprint.node_major));
+  output->push_back('.');
+  output->append(std::to_string(fingerprint.node_minor));
+  output->push_back('.');
+  output->append(std::to_string(fingerprint.node_patch));
 }
 
 }  // namespace
@@ -85,9 +64,9 @@ NapiRuntimeProfile NapiRuntimeProfile::Node(uint32_t major) {
 }
 
 Result<NapiRuntimeProfile> NapiRuntimeProfile::Electron(
-    std::string_view version) {
+    const NativeRuntimeFingerprint& fingerprint) {
   for (const auto& profile : kElectronProfiles) {
-    if (version == profile.version) {
+    if (Matches(profile, fingerprint)) {
       // Electron 43-45 embed Node 24 with a newer tagged V8 API, while their
       // Node-side context setup still stores Realm with the default tag 0.
       return Result<NapiRuntimeProfile>::Ok(NapiRuntimeProfile(
@@ -97,33 +76,26 @@ Result<NapiRuntimeProfile> NapiRuntimeProfile::Electron(
     }
   }
 
-  std::string message = "unsupported Electron version: ";
-  message.append(version);
-  message.append(" (supported: ");
+  std::string message = "unsupported Electron runtime fingerprint: Node ";
+  AppendNodeVersion(&message, fingerprint);
+  message.append(", V8 ");
+  message.append(fingerprint.v8_version);
+  message.append(" (supported Electron versions: ");
   for (size_t index = 0; index < kElectronProfiles.size(); ++index) {
     if (index != 0) message.append(", ");
-    message.append(kElectronProfiles[index].version);
+    message.append(kElectronProfiles[index].electron_version);
   }
   message.push_back(')');
   return Result<NapiRuntimeProfile>::Failure(Status::Failure(
       ProbeStatus::kUnsupportedNoContext, message));
 }
 
-Result<NapiRuntimeProfile> NapiRuntimeProfile::Detect(napi_env env) {
-  auto electron_version = ReadElectronVersion(env);
-  if (!electron_version.ok()) {
-    return Result<NapiRuntimeProfile>::Failure(electron_version.status());
+Result<NapiRuntimeProfile> NapiRuntimeProfile::FromFingerprint(
+    const NativeRuntimeFingerprint& fingerprint) {
+  if (IsElectronV8Version(fingerprint.v8_version)) {
+    return Electron(fingerprint);
   }
-  if (electron_version.value().present) {
-    return Electron(electron_version.value().value);
-  }
-
-  const napi_node_version* version = nullptr;
-  if (napi_get_node_version(env, &version) != napi_ok || version == nullptr) {
-    return Result<NapiRuntimeProfile>::Failure(Status::Failure(
-        ProbeStatus::kUnsupportedNoContext, "could not read Node.js version"));
-  }
-  return Result<NapiRuntimeProfile>::Ok(Node(version->major));
+  return Result<NapiRuntimeProfile>::Ok(Node(fingerprint.node_major));
 }
 
 }  // namespace esplus::node::require_builtin

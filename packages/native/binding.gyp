@@ -13,6 +13,7 @@
         "src/node_api_addon.cc",
         "src/debug_trace.cc",
         "src/native_types.cc",
+        "src/runtime_symbol.cc",
         "src/runtime_context/helper.cc",
         "src/runtime_context/platform.cc",
         "src/runtime_context/darwin_arm64.cc",
@@ -96,6 +97,7 @@
           {
             "sources": [
               "src/runtime_context/runtime_profile.cc",
+              "src/runtime_context/runtime_profile_napi.cc",
               "src/runtime_compat_napi.cc"
             ],
             "defines": [

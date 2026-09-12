@@ -77,9 +77,6 @@ Result<EmbedderDataRead> ReadRealmFromEmbedderData(
 }
 
 Result<RuntimeContext> ReadCurrentContext(napi_env env) {
-  auto profile = NapiRuntimeProfile::Detect(env);
-  if (!profile.ok()) return Result<RuntimeContext>::Failure(profile.status());
-
   // Public Node-API does not expose v8::Context. This crosses the API boundary
   // by calling exported V8 methods dynamically from the current process.
   auto get_current_isolate =
@@ -134,6 +131,9 @@ Result<RuntimeContext> ReadCurrentContext(napi_env env) {
   context.context = reinterpret_cast<uintptr_t>(context.context_ptr);
   context.has_v8_context = true;
   context.embedder_fields = context_read.value().embedder_fields;
+
+  auto profile = NapiRuntimeProfile::Detect(env);
+  if (!profile.ok()) return Result<RuntimeContext>::Failure(profile.status());
 
   auto embedder_data =
       ReadRealmFromEmbedderData(profile.value(), context.context_ptr);

@@ -81,6 +81,13 @@ jobs:
         if: runner.os != 'Windows'
         run: pnpm test:decoder
 
+      - name: Test runtime profiles
+        # The matcher consumes version strings only and is host-independent.
+        # Windows runners do not provide the standalone `c++` compiler used by
+        # this focused native self-test.
+        if: runner.os != 'Windows'
+        run: pnpm test:profile
+
       - name: Build N-API prebuild
         if: runner.os != 'Linux'
         shell: bash
