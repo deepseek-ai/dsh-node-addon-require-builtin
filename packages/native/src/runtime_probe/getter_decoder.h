@@ -16,11 +16,17 @@ namespace esplus::node::require_builtin {
 // AArch64 `bti c` landing pad ahead of an sret `ldr; mov; str; ret`, or a
 // framed x86-64 accessor) will not reach its `ret` inside the window and is
 // rejected — the matchers fail closed rather than guess. That is safe on the
-// current Windows Node binaries, whose per-realm accessors are leaf functions
-// with no BTI pad and no stack frame; if a future toolchain emits longer
-// bodies this constant (and the readable-range guarantee above) must grow to
-// match, and the decoders must still terminate on `ret` within the window.
+// current Windows x64/arm64 Node binaries, whose per-realm accessors are leaf
+// functions with no BTI pad and no stack frame. Windows x86 has a separate
+// window below. If a future toolchain emits longer bodies, the relevant
+// platform contract and readable-range guarantee must grow together, and the
+// decoder must still terminate on `ret` within that window.
 constexpr size_t kGetterCodeWindowBytes = 16;
+
+// Electron 43 win32-ia32 emits an 18-byte framed __thiscall sret getter. Keep
+// that larger contract isolated to the 32-bit Windows parser and vtable scan;
+// other Windows architectures retain the existing 16-byte arbitrary-code read.
+constexpr size_t kX86GetterCodeWindowBytes = 24;
 
 // Second, larger window for hardened builds, used only when a matcher has
 // already failed at kGetterCodeWindowBytes and the caller has confirmed this
@@ -126,7 +132,8 @@ Result<GetterPattern> MatchArm64Win64FieldGetter(void* getter,
 // x86 (32-bit) Windows (MSVC __thiscall): `this` in ECX. A pointer/scalar
 // return comes back in EAX from a bare `ret`; a non-trivial return uses a hidden
 // struct-return pointer passed on the stack, so the callee cleans it up with
-// `ret 4`. Selects the call mode from that terminating ret form.
+// `ret 4`. Selects the call mode from that terminating ret form. Reads the
+// dedicated kX86GetterCodeWindowBytes window.
 Result<GetterPattern> MatchX86ThiscallFieldGetter(void* getter,
                                                   std::string_view platform_tag);
 

@@ -11,12 +11,12 @@ namespace {
 // A field getter can only reference the object a handful of words into itself.
 constexpr size_t kMaxReasonableRealmOffset = 0x4000;
 
-// Longest getter body we recognize (frame-pointer prologue + disp32 load +
-// struct-return epilogue + ret) fits in 14 bytes. The copied window is
-// kGetterCodeWindowBytes (16): callers that scan arbitrary code (the Windows
-// vtable scanner) guarantee that many readable bytes, so the decoder must not
-// read further. It fails closed if a body needs more than the window holds.
+// Longest x64 getter body we recognize (frame-pointer prologue + disp32 load +
+// struct-return epilogue + ret) fits in 14 bytes. The standard copied window is
+// kGetterCodeWindowBytes (16). The 32-bit Windows matcher has its own 24-byte
+// contract for Electron's 18-byte framed __thiscall getter.
 constexpr size_t kX64CodeWindow = kGetterCodeWindowBytes;
+constexpr size_t kX86CodeWindow = kX86GetterCodeWindowBytes;
 constexpr size_t kArm64WordWindow = kGetterCodeWindowBytes / sizeof(uint32_t);
 constexpr size_t kHardenedArm64WordWindow =
     kHardenedGetterCodeWindowBytes / sizeof(uint32_t);
@@ -551,7 +551,7 @@ Result<GetterPattern> MatchX64Win64FieldGetter(void* getter,
 
 Result<GetterPattern> MatchX86ThiscallFieldGetter(void* getter,
                                                   std::string_view platform_tag) {
-  std::array<uint8_t, kX64CodeWindow> code{};
+  std::array<uint8_t, kX86CodeWindow> code{};
   std::memcpy(code.data(), getter, code.size());
 
   // __thiscall passes `this` in ECX. A pointer/scalar return comes back in EAX

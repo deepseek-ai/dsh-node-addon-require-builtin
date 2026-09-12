@@ -2,6 +2,7 @@
 
 #include "backend_config.h"
 #include "runtime_context/helper.h"
+#include "runtime_context/runtime_profile.h"
 #include "runtime_probe/helper.h"
 
 #include <array>
@@ -34,23 +35,51 @@ using SlowGetAlignedPointerUntaggedFn =
 using SlowGetAlignedPointerTaggedFn =
     void* (NARB_MEMBER_ABI*)(void*, int, uint16_t);
 
-enum class EmbedderDataFamily {
-  kUntagged,
-  kTagged,
+struct EmbedderDataRead {
+  void* realm_ptr = nullptr;
+  const char* family = nullptr;
 };
 
-Result<EmbedderDataFamily> DetectEmbedderDataFamily(napi_env env) {
-  const napi_node_version* version = nullptr;
-  if (napi_get_node_version(env, &version) != napi_ok || version == nullptr) {
-    return Result<EmbedderDataFamily>::Failure(Status::Failure(
-        ProbeStatus::kUnsupportedNoContext, "could not read Node.js version"));
+Result<EmbedderDataRead> ReadRealmFromEmbedderData(
+    const NapiRuntimeProfile& profile,
+    void* context) {
+  if (profile.embedder_data_abi() == EmbedderDataAbi::kTagged) {
+    auto get_aligned_tagged =
+        LookupProcessFunction<SlowGetAlignedPointerTaggedFn>(
+            kSymContextSlowGetAlignedPointerTagged);
+    if (get_aligned_tagged == nullptr) {
+      return Result<EmbedderDataRead>::Failure(Status::Failure(
+          ProbeStatus::kUnsupportedNoRealm,
+          "tagged GetAlignedPointerFromEmbedderData symbol not found"));
+    }
+    DebugTrace("calling SlowGetAlignedPointerFromEmbedderData(tagged)");
+    return Result<EmbedderDataRead>::Ok({
+        get_aligned_tagged(
+            context, kRealmSlot, profile.embedder_data_tag()),
+        profile.diagnostic_name(),
+    });
   }
-  return Result<EmbedderDataFamily>::Ok(
-      version->major >= 26 ? EmbedderDataFamily::kTagged
-                           : EmbedderDataFamily::kUntagged);
+
+  auto get_aligned_untagged =
+      LookupProcessFunction<SlowGetAlignedPointerUntaggedFn>(
+          kSymContextSlowGetAlignedPointerUntagged);
+  if (get_aligned_untagged != nullptr) {
+    DebugTrace("calling SlowGetAlignedPointerFromEmbedderData(untagged)");
+    return Result<EmbedderDataRead>::Ok({
+        get_aligned_untagged(context, kRealmSlot),
+        profile.diagnostic_name(),
+    });
+  }
+
+  return Result<EmbedderDataRead>::Failure(Status::Failure(
+      ProbeStatus::kUnsupportedNoRealm,
+      "no compatible GetAlignedPointerFromEmbedderData symbol found"));
 }
 
 Result<RuntimeContext> ReadCurrentContext(napi_env env) {
+  auto profile = NapiRuntimeProfile::Detect(env);
+  if (!profile.ok()) return Result<RuntimeContext>::Failure(profile.status());
+
   // Public Node-API does not expose v8::Context. This crosses the API boundary
   // by calling exported V8 methods dynamically from the current process.
   auto get_current_isolate =
@@ -106,38 +135,13 @@ Result<RuntimeContext> ReadCurrentContext(napi_env env) {
   context.has_v8_context = true;
   context.embedder_fields = context_read.value().embedder_fields;
 
-  auto family = DetectEmbedderDataFamily(env);
-  if (!family.ok()) return Result<RuntimeContext>::Failure(family.status());
-
-  if (family.value() == EmbedderDataFamily::kTagged) {
-    // Node 26+ family: V8 requires the per-context embedder-data tag.
-    auto get_aligned_tagged =
-        LookupProcessFunction<SlowGetAlignedPointerTaggedFn>(
-            kSymContextSlowGetAlignedPointerTagged);
-    if (get_aligned_tagged == nullptr) {
-      return Result<RuntimeContext>::Failure(Status::Failure(
-          ProbeStatus::kUnsupportedNoRealm,
-          "tagged GetAlignedPointerFromEmbedderData symbol not found"));
-    }
-    context.embedder_data = "tagged kPerContextData=2";
-    DebugTrace("calling SlowGetAlignedPointerFromEmbedderData(tagged)");
-    context.realm_ptr = get_aligned_tagged(
-        context.context_ptr, kRealmSlot, kPerContextDataTag);
-  } else {
-    // Node 20/22/24 family: the exported slow path has the older untagged
-    // signature. This split is the main runtime version compatibility branch.
-    auto get_aligned_untagged =
-        LookupProcessFunction<SlowGetAlignedPointerUntaggedFn>(
-            kSymContextSlowGetAlignedPointerUntagged);
-    if (get_aligned_untagged == nullptr) {
-      return Result<RuntimeContext>::Failure(Status::Failure(
-          ProbeStatus::kUnsupportedNoRealm,
-          "no compatible GetAlignedPointerFromEmbedderData symbol found"));
-    }
-    context.embedder_data = "untagged Node 20/22/24 family";
-    DebugTrace("calling SlowGetAlignedPointerFromEmbedderData(untagged)");
-    context.realm_ptr = get_aligned_untagged(context.context_ptr, kRealmSlot);
+  auto embedder_data =
+      ReadRealmFromEmbedderData(profile.value(), context.context_ptr);
+  if (!embedder_data.ok()) {
+    return Result<RuntimeContext>::Failure(embedder_data.status());
   }
+  context.embedder_data = embedder_data.value().family;
+  context.realm_ptr = embedder_data.value().realm_ptr;
 
   context.realm = reinterpret_cast<uintptr_t>(context.realm_ptr);
   DebugTrace("realm=%s", Hex(context.realm).c_str());

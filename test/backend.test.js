@@ -131,3 +131,23 @@ console.log(
     2,
   ),
 );
+
+if (info.backend === 'napi' && !process.versions.electron) {
+  // Runtime profiles are selected from the public host marker. Unsupported
+  // Electron versions must stop before any Electron-specific private ABI is
+  // attempted; keep this in a separate final probe so the normal Node path
+  // above remains the behavior under test for the rest of this file.
+  Object.defineProperty(process.versions, 'electron', {
+    configurable: true,
+    value: '42.0.0',
+  });
+  assert.throws(
+    () => addon.requireBuiltin('internal/modules/esm/loader'),
+    (error) => {
+      assert.equal(error.code, 'Unsupported/no-context');
+      assert.match(error.message, /unsupported Electron version: 42\.0\.0/);
+      return true;
+    },
+  );
+  delete process.versions.electron;
+}

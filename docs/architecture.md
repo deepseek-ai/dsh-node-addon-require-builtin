@@ -113,6 +113,26 @@ Constraints:
 - Finds required V8 symbols dynamically.
 - Uses N-API immediately to validate the candidate handle.
 
+Before choosing the V8 embedder-data ABI, the N-API backend creates a runtime
+profile from `process.versions.electron` and the Node version:
+
+| Runtime | Embedder-data ABI | Tag |
+|---|---|---:|
+| Node 20/22/24 | untagged overload | n/a |
+| Node 26+ | tagged overload | `kPerContextData=2` |
+| Electron 43.0.0, 44.0.0, 45.0.0-alpha.6 | tagged overload | default `0` |
+
+Electron is an explicit branch, not a fallback from the Node version logic.
+These releases report Node 24 but embed V8 15.0-15.4, whose context API already
+uses the tagged signature. Their Node context initialization still writes Realm
+slot 38 with tag 0. Unknown Electron versions fail before private symbols are
+called; ordinary Node keeps the pre-Electron selection and diagnostics.
+
+The profile chooses the calling convention only. Realm field offsets remain
+runtime facts decoded from `PrincipalRealm::builtin_module_require()` machine
+code: Electron 43 currently yields `0x1b8`, while 44/45 yield `0x1c0` on the
+inspected builds. No version-to-offset table exists in the implementation.
+
 ### `nodeabi`
 
 The `nodeabi` backend builds one binary per Node module ABI for source-build
@@ -137,6 +157,10 @@ the backend and performs the private checks:
   The getter block is identified structurally (longest strictly-ascending field
   offset chain plus exact `requireBuiltin` N-API identity) rather than by a fixed
   slot/offset stride, which is not stable across Windows architectures.
+- Windows x64 and arm64 retain the 16-byte candidate window. Electron 43 ia32
+  emits an 18-byte framed `__thiscall` sret getter, so only the ia32 scanner and
+  decoder use a 24-byte readable window. The wider read is gated by
+  `VirtualQuery`; the accepted instruction set and identity checks are unchanged.
 - Verify the getter and `Realm` vtable are from the same loaded image on
   platforms where image metadata is available.
 - Parse a short getter machine-code pattern to get the runtime field offset.

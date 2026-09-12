@@ -65,6 +65,9 @@ const commonSources = [
 ];
 const sources = [
   ...commonSources,
+  ...(backend === 'napi'
+    ? [path.join(packageRoot, 'src', 'runtime_context', 'runtime_profile.cc')]
+    : []),
   path.join(
     packageRoot,
     'src',

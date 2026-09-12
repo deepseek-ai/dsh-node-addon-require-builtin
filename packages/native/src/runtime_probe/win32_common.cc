@@ -46,6 +46,12 @@ constexpr uintptr_t kVtableCandidateAlignment = 4;
 constexpr uintptr_t kVtableCandidateAlignment = alignof(void*);
 #endif
 
+#if defined(_M_IX86)
+constexpr size_t kWindowsGetterCodeWindowBytes = kX86GetterCodeWindowBytes;
+#else
+constexpr size_t kWindowsGetterCodeWindowBytes = kGetterCodeWindowBytes;
+#endif
+
 bool IsWindowsVtableCandidateAligned(uintptr_t address) {
   return address != 0 && (address % kVtableCandidateAlignment) == 0;
 }
@@ -592,7 +598,7 @@ Result<GetterSymbol> ResolvePlatformBuiltinModuleRequireGetterFallback(
     // The decoder copies a fixed instruction window out of the candidate.
     // Skip candidates that sit too close to the end of their region so the
     // parse can never read past mapped memory.
-    if (!IsWindowsReadableRange(candidate, kGetterCodeWindowBytes)) {
+    if (!IsWindowsReadableRange(candidate, kWindowsGetterCodeWindowBytes)) {
       stats.unreadable++;
       continue;
     }
