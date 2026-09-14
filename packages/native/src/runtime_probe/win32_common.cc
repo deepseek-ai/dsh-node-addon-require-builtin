@@ -46,6 +46,12 @@ constexpr uintptr_t kVtableCandidateAlignment = 4;
 constexpr uintptr_t kVtableCandidateAlignment = alignof(void*);
 #endif
 
+#if defined(_M_IX86)
+constexpr size_t kWindowsGetterCodeWindowBytes = kX86GetterCodeWindowBytes;
+#else
+constexpr size_t kWindowsGetterCodeWindowBytes = kGetterCodeWindowBytes;
+#endif
+
 bool IsWindowsVtableCandidateAligned(uintptr_t address) {
   return address != 0 && (address % kVtableCandidateAlignment) == 0;
 }
@@ -62,7 +68,8 @@ struct WindowsSymbolAlias {
 // `PEAX`/`PEAV`. A binary is built for exactly one architecture, so the correct
 // alias column is selected at compile time.
 #if defined(_M_IX86)
-constexpr std::array<WindowsSymbolAlias, 5> kWindowsSymbolAliases = {{
+constexpr std::array<WindowsSymbolAlias, 6> kWindowsSymbolAliases = {{
+    {"_ZN2v82V810GetVersionEv", "?GetVersion@V8@v8@@SAPBDXZ"},
     {"_ZN2v87Isolate10GetCurrentEv",
      "?GetCurrent@Isolate@v8@@SAPAV12@XZ"},
     {"_ZN2v87Isolate17GetCurrentContextEv",
@@ -75,7 +82,8 @@ constexpr std::array<WindowsSymbolAlias, 5> kWindowsSymbolAliases = {{
      "?SlowGetAlignedPointerFromEmbedderData@Context@v8@@AAEPAXHG@Z"},
 }};
 #else
-constexpr std::array<WindowsSymbolAlias, 5> kWindowsSymbolAliases = {{
+constexpr std::array<WindowsSymbolAlias, 6> kWindowsSymbolAliases = {{
+    {"_ZN2v82V810GetVersionEv", "?GetVersion@V8@v8@@SAPEBDXZ"},
     {"_ZN2v87Isolate10GetCurrentEv",
      "?GetCurrent@Isolate@v8@@SAPEAV12@XZ"},
     {"_ZN2v87Isolate17GetCurrentContextEv",
@@ -592,7 +600,7 @@ Result<GetterSymbol> ResolvePlatformBuiltinModuleRequireGetterFallback(
     // The decoder copies a fixed instruction window out of the candidate.
     // Skip candidates that sit too close to the end of their region so the
     // parse can never read past mapped memory.
-    if (!IsWindowsReadableRange(candidate, kGetterCodeWindowBytes)) {
+    if (!IsWindowsReadableRange(candidate, kWindowsGetterCodeWindowBytes)) {
       stats.unreadable++;
       continue;
     }

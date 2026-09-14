@@ -159,6 +159,12 @@ tested across Node 20, 22, 24, and 26. Linux GNU prebuilds require glibc 2.28 or
 newer and a `GLIBCXX_3.4.25`-compatible C++ runtime. Linux musl is not published yet.
 Node.js stopped shipping 32-bit Windows binaries after v22, so
 `win32-ia32-msvc` covers only Node 20 and 22.
+
+Electron 43.0.0, 44.0.0, and 45.0.0-alpha.6 are also tested in real main
+processes for both products. The Electron matrix covers macOS arm64/x64, Linux
+glibc arm64/x64, and Windows arm64/x64. Electron 43 additionally covers Windows
+ia32; later releases do not publish an ia32 binary. Other Electron versions
+fail closed until they are analyzed and added explicitly.
 See [docs/support-matrix.md](docs/support-matrix.md) and
 [docs/internal-modules.md](docs/internal-modules.md).
 

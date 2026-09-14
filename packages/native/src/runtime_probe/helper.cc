@@ -51,10 +51,6 @@ Result<void*> ReadRealmVptr(void* realm) {
   return Result<void*>::Ok(vptr);
 }
 
-void* LookupProcessSymbol(std::string_view name) {
-  return LookupPlatformProcessSymbol(name);
-}
-
 Result<GetterSymbol> ResolveBuiltinModuleRequireGetter(napi_env env,
                                                        void* realm) {
   void* getter = LookupProcessSymbol(kSymBuiltinModuleRequireGetter);

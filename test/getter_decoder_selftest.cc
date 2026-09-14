@@ -1,4 +1,4 @@
-// Standalone verification for the x64/arm64 getter decoders. Feeds each decoder
+// Standalone verification for the x64/arm64/x86 getter decoders. Feeds each decoder
 // the exact machine-code shapes the per-platform parsers recognize and asserts
 // the decoded offset and call mode. The decoders are host-architecture
 // independent, so this runs on any build host regardless of the target it
@@ -179,6 +179,30 @@ int main() {
              0x2000, GetterCallMode::kDirectReturn);
   }
 
+  // Electron 43 darwin-x64, read from Electron Framework:
+  // push rbp; mov rbp,rsp; mov rax,[rdi+0x1b8]; pop rbp; ret
+  {
+    std::vector<uint8_t> code = {0x55, 0x48, 0x89, 0xe5, 0x48, 0x8b, 0x87};
+    PushDisp32(&code, 0x1b8);
+    code.push_back(0x5d);
+    code.push_back(0xc3);
+    ExpectOk("fixture x64/electron43-darwin",
+             MatchX64SysVFieldGetter(Pad16(code).data(), "fx"),
+             0x1b8, GetterCallMode::kDirectReturn);
+  }
+
+  // Electron 44/45 darwin-x64, read from Electron Framework:
+  // push rbp; mov rbp,rsp; mov rax,[rdi+0x1c0]; pop rbp; ret
+  {
+    std::vector<uint8_t> code = {0x55, 0x48, 0x89, 0xe5, 0x48, 0x8b, 0x87};
+    PushDisp32(&code, 0x1c0);
+    code.push_back(0x5d);
+    code.push_back(0xc3);
+    ExpectOk("fixture x64/electron44-45-darwin",
+             MatchX64SysVFieldGetter(Pad16(code).data(), "fx"),
+             0x1c0, GetterCallMode::kDirectReturn);
+  }
+
   // Frame-pointer prologue with disp8:
   // 55 48 89 e5 48 8b 47 <d8> 5d c3
   ExpectOk("sysv framed mov-rax-[rdi]-disp8-ret",
@@ -287,6 +311,17 @@ int main() {
              0x1c8, GetterCallMode::kSret);
   }
 
+  // Electron 44 win32-x64, read from electron.exe:
+  // mov rax,rdx; mov rcx,[rcx+0x1c0]; mov [rdx],rcx; ret
+  {
+    std::vector<uint8_t> code = {0x48, 0x89, 0xd0, 0x48, 0x8b, 0x89};
+    PushDisp32(&code, 0x1c0);
+    for (uint8_t b : {0x48, 0x89, 0x0a, 0xc3}) code.push_back(b);
+    ExpectOk("fixture x64/electron44-win32",
+             MatchX64Win64FieldGetter(Pad16(code).data(), "fx"),
+             0x1c0, GetterCallMode::kSret);
+  }
+
   // Same variant with a disp8 load:
   // mov rax,rdx; mov rcx,[rcx+disp8]; mov [rdx],rcx; ret
   // 48 89 d0 48 8b 49 <d8> 48 89 0a c3
@@ -314,6 +349,38 @@ int main() {
                    .data(),
                "test"),
            0x40, GetterCallMode::kDirectReturn);
+
+  // Electron 43 darwin-arm64, read from Electron Framework:
+  // ldr x0,[x0,#0x1b8]; ret
+  ExpectOk("fixture arm64/electron43-darwin",
+           MatchArm64FieldGetter(
+               Arm64Words({0xf940dc00, 0xd65f03c0, 0xf940e000, 0xd65f03c0})
+                   .data(),
+               "fx"),
+           0x1b8, GetterCallMode::kDirectReturn);
+
+  // Electron 44/45 darwin-arm64, read from Electron Framework:
+  // ldr x0,[x0,#0x1c0]; ret
+  ExpectOk("fixture arm64/electron44-45-darwin",
+           MatchArm64FieldGetter(
+               Arm64Words({0xf940e000, 0xd65f03c0, 0xf9412000, 0xd65f03c0})
+                   .data(),
+               "fx"),
+           0x1c0, GetterCallMode::kDirectReturn);
+
+  // Electron 43 linux-arm64 adds BTI to the same 0x1b8 field getter.
+  ExpectOk("fixture arm64/electron43-linux",
+           MatchArm64AapcsFieldGetter(
+               Arm64Words({0xd503245f, 0xf940dc00, 0xd65f03c0}).data(),
+               "fx", 16),
+           0x1b8, GetterCallMode::kDirectReturn);
+
+  // Electron 44/45 linux-arm64 use BTI and the 0x1c0 Realm field.
+  ExpectOk("fixture arm64/electron44-45-linux",
+           MatchArm64AapcsFieldGetter(
+               Arm64Words({0xd503245f, 0xf940e000, 0xd65f03c0}).data(),
+               "fx", 16),
+           0x1c0, GetterCallMode::kDirectReturn);
 
   // --- arm64 AAPCS walker (linux): tolerates hardened prologue/epilogue ---
   // The real shape Fedora 44 emits for both nodejs22 (libnode.so.127) and
@@ -453,6 +520,15 @@ int main() {
                "test"),
            0x40, GetterCallMode::kSret);
 
+  // Electron 45 win32-arm64, read from electron.exe:
+  // ldr x8,[x0,#0x1c0]; mov x0,x1; str x8,[x1]; ret
+  ExpectOk("fixture arm64/electron45-win32",
+           MatchArm64Win64FieldGetter(
+               Arm64Words({0xf940e008, 0xaa0103e0, 0xf9000028, 0xd65f03c0})
+                   .data(),
+               "fx"),
+           0x1c0, GetterCallMode::kSret);
+
   // Sret store from a different register than the load: rejected.
   ExpectReject("win32-arm64 sret store-src-mismatch",
                MatchArm64Win64FieldGetter(
@@ -465,7 +541,7 @@ int main() {
   // Direct: mov eax,[ecx+disp8]; ret  -> 8b 41 <d8> c3
   ExpectOk("win32-x86 direct mov-eax-[ecx]-disp8-ret",
            MatchX86ThiscallFieldGetter(
-               Pad16({0x8b, 0x41, 0x28, 0xc3}).data(), "test"),
+               Pad32({0x8b, 0x41, 0x28, 0xc3}).data(), "test"),
            0x28, GetterCallMode::kDirectReturn);
 
   // Direct disp32: mov eax,[ecx+disp32]; ret  -> 8b 81 <d32> c3
@@ -474,7 +550,7 @@ int main() {
     PushDisp32(&code, 0x1c0);
     code.push_back(0xc3);
     ExpectOk("win32-x86 direct mov-eax-[ecx]-disp32-ret",
-             MatchX86ThiscallFieldGetter(Pad16(code).data(), "test"),
+             MatchX86ThiscallFieldGetter(Pad32(code).data(), "test"),
              0x1c0, GetterCallMode::kDirectReturn);
   }
 
@@ -483,7 +559,7 @@ int main() {
   //   ret 4           -> c2 04 00
   ExpectOk("win32-x86 sret ret-imm16",
            MatchX86ThiscallFieldGetter(
-               Pad16({0x8b, 0x49, 0x30, 0x8b, 0x44, 0x24, 0x04, 0x89, 0x08,
+               Pad32({0x8b, 0x49, 0x30, 0x8b, 0x44, 0x24, 0x04, 0x89, 0x08,
                       0xc2, 0x04, 0x00})
                    .data(),
                "test"),
@@ -495,20 +571,31 @@ int main() {
     PushDisp32(&code, 0x1c8);
     for (uint8_t b : {0x5d, 0xc2, 0x04, 0x00}) code.push_back(b);
     ExpectOk("win32-x86 framed sret ret-imm16",
-             MatchX86ThiscallFieldGetter(Pad16(code).data(), "test"),
+             MatchX86ThiscallFieldGetter(Pad32(code).data(), "test"),
              0x1c8, GetterCallMode::kSret);
   }
+
+  // Electron 43 win32-ia32, read from electron.exe:
+  // push ebp; mov ebp,esp; mov eax,[ebp+8]; mov ecx,[ecx+0xdc];
+  // mov [eax],ecx; pop ebp; ret 4
+  ExpectOk("fixture ia32/electron43-win32",
+           MatchX86ThiscallFieldGetter(
+               Pad32({0x55, 0x89, 0xe5, 0x8b, 0x45, 0x08, 0x8b, 0x89, 0xdc,
+                      0x00, 0x00, 0x00, 0x89, 0x08, 0x5d, 0xc2, 0x04, 0x00})
+                   .data(),
+               "fx"),
+           0xdc, GetterCallMode::kSret);
 
   // Direct getter that returns via a register other than eax: rejected.
   // mov ecx,[ecx+disp8]; ret -> 8b 49 20 c3
   ExpectReject("win32-x86 direct non-eax return",
                MatchX86ThiscallFieldGetter(
-                   Pad16({0x8b, 0x49, 0x20, 0xc3}).data(), "test"));
+                   Pad32({0x8b, 0x49, 0x20, 0xc3}).data(), "test"));
 
   // Zero offset is implausible: mov eax,[ecx]; ret -> 8b 01 c3
   ExpectReject("win32-x86 zero-offset",
                MatchX86ThiscallFieldGetter(
-                   Pad16({0x8b, 0x01, 0xc3}).data(), "test"));
+                   Pad32({0x8b, 0x01, 0xc3}).data(), "test"));
 
   // --- rejections --------------------------------------------------------
   // Reads the wrong base register (rsi=6 instead of rdi): 48 8b 46 08 c3

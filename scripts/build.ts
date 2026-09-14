@@ -40,6 +40,7 @@ const commonSources = [
   path.join(packageRoot, 'src', 'node_api_addon.cc'),
   path.join(packageRoot, 'src', 'debug_trace.cc'),
   path.join(packageRoot, 'src', 'native_types.cc'),
+  path.join(packageRoot, 'src', 'runtime_symbol.cc'),
   path.join(packageRoot, 'src', 'require_builtin_probe.cc'),
   path.join(packageRoot, 'src', 'runtime_context', 'helper.cc'),
   path.join(packageRoot, 'src', 'runtime_context', 'platform.cc'),
@@ -65,6 +66,12 @@ const commonSources = [
 ];
 const sources = [
   ...commonSources,
+  ...(backend === 'napi'
+    ? [
+        path.join(packageRoot, 'src', 'runtime_context', 'runtime_profile.cc'),
+        path.join(packageRoot, 'src', 'runtime_context', 'runtime_profile_napi.cc'),
+      ]
+    : []),
   path.join(
     packageRoot,
     'src',
