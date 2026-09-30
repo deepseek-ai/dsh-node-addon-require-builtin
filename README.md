@@ -1,4 +1,6 @@
-# Node addon internal require products
+# Node addon internal require
+
+English | [中文](README.zh.md)
 
 Node-API addons that obtain Node's internal `requireBuiltin()` without starting
 Node with `--expose-internals`.

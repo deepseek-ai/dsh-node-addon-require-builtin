@@ -5,7 +5,7 @@ diagnostic and integration tool, not a sandbox boundary or a hardening layer.
 
 ## Supported Versions
 
-Only the current `main` branch is supported before a stable 1.0 release.
+Only the current `master` branch is supported before a stable 1.0 release.
 
 ## Reporting a Vulnerability
 
