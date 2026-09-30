@@ -1,6 +1,11 @@
 {
   "name": "node-addon-require-builtin",
   "version": "0.1.6",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-ai/dsh-node-addon-require-builtin.git",
+    "directory": "packages/require-builtin/entry"
+  },
   "type": "commonjs",
   "description": "Node-API addon with runtime probing for internal access (unrestricted require-builtin variant).",
   "main": "lib/index.js",

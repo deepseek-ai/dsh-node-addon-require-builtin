@@ -1,6 +1,11 @@
 {
   "name": "node-addon-internal-loader-win32-arm64-msvc",
   "version": "0.1.6",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-ai/dsh-node-addon-require-builtin.git",
+    "directory": "packages/internal-loader/win32-arm64-msvc"
+  },
   "description": "Prebuilt win32-arm64-msvc native addon package for node-addon-internal-loader.",
   "main": "./index.js",
   "publishConfig": {

@@ -1,6 +1,11 @@
 {
   "name": "node-addon-require-builtin-win32-ia32-msvc",
   "version": "0.1.6",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-ai/dsh-node-addon-require-builtin.git",
+    "directory": "packages/require-builtin/win32-ia32-msvc"
+  },
   "description": "Prebuilt win32-ia32-msvc native addon package for node-addon-require-builtin.",
   "main": "./index.js",
   "publishConfig": {
