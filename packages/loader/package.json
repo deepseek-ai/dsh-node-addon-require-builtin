@@ -1,6 +1,11 @@
 {
   "name": "node-addon-native-custom-loader",
   "version": "0.1.6",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-ai/dsh-node-addon-require-builtin.git",
+    "directory": "packages/loader"
+  },
   "type": "commonjs",
   "description": "Shared native binary loader for the node-addon-require-builtin and node-addon-internal-loader package families.",
   "main": "lib/index.js",
